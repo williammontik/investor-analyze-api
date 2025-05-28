@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback, random
+import os, logging, smtplib
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -28,21 +28,22 @@ def compute_age(dob):
 
 def get_openai_response(prompt, temp=0.7):
     try:
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=temp
         )
-        return response['choices'][0]['message']['content'].strip()
+        return response.choices[0].message.content
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
-        return None
+        return "⚠️ Could not generate response."
 
-def send_email(html_body, subject):
-    msg = MIMEText(html_body, 'html', 'utf-8')
-    msg['Subject'] = subject
-    msg['From'] = SMTP_USERNAME
-    msg['To'] = SMTP_USERNAME
+def send_email(body, email):
+    msg = MIMEText(body, "html", "utf-8")
+    msg["Subject"] = "📊 Strategic Investor Readiness Report"
+    msg["From"] = SMTP_USERNAME
+    msg["To"] = email
+
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
@@ -51,125 +52,87 @@ def send_email(html_body, subject):
     except Exception as e:
         logging.error(f"Email send error: {e}")
 
-def generate_chart_metrics():
-    return [
-        {
-            "title": "Market Positioning",
-            "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"],
-            "values": [random.randint(70, 90), random.randint(65, 85), random.randint(70, 90)]
-        },
-        {
-            "title": "Investor Appeal",
-            "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"],
-            "values": [random.randint(70, 85), random.randint(60, 80), random.randint(75, 90)]
-        },
-        {
-            "title": "Strategic Execution",
-            "labels": ["Partnership Readiness", "Luxury Channel Leverage", "Leadership Presence"],
-            "values": [random.randint(65, 85), random.randint(65, 85), random.randint(75, 90)]
-        }
-    ]
-
-def generate_chart_html(metrics):
-    colors = ["#8C52FF", "#5E9CA0", "#F2A900"]
-    html = ""
-    for i, m in enumerate(metrics):
-        html += f"<strong style='font-size:18px;color:#333;'>{m['title']}</strong><br>"
-        for j, (label, val) in enumerate(zip(m['labels'], m['values'])):
-            html += (
-                f"<div style='display:flex;align-items:center;margin-bottom:8px;'>"
-                f"<span style='width:180px;'>{label}</span>"
-                f"<div style='flex:1;background:#eee;border-radius:5px;overflow:hidden;'>"
-                f"<div style='width:{val}%;height:14px;background:{colors[j % len(colors)]};'></div></div>"
-                f"<span style='margin-left:10px;'>{val}%</span></div>"
-            )
-        html += "<br>"
-    return html
-
 @app.route("/investor_analyze", methods=["POST"])
-def investor_analyze():
+def analyze_investor():
     try:
         data = request.get_json(force=True)
-        logging.debug(f"POST received: {data}")
 
+        name = data.get("fullName")
         dob = data.get("dob")
+        company = data.get("company")
+        role = data.get("role")
+        country = data.get("country")
         experience = data.get("experience")
         industry = data.get("industry")
-        if industry == "Other":
-            industry = data.get("otherIndustry", "Other")
-        country = data.get("country")
-        age = compute_age(dob)
-        subject = "Your Strategic Investor Insight"
-        chart_metrics = generate_chart_metrics()
+        challenge = data.get("challenge")
+        context = data.get("context")
+        targetProfile = data.get("targetProfile")
+        email = data.get("email")
+        advisor = data.get("advisor")
 
-        def format_chart(metrics):
-            return "\n".join([
-                f"{group['title']}: " +
-                ", ".join([f"{label} = {val}%" for label, val in zip(group["labels"], group["values"])])
-                for group in metrics
-            ])
+        age = compute_age(dob)
 
         summary_prompt = (
-            f"Write a 4-paragraph investor insight in third-person (no you/your). "
-            f"Start like this: 'Similar individuals — such as a {age}-year-old professional with {experience} years of experience "
-            f"in the {industry} sector in {country} — tend to...'\n\n"
-            f"Use these chart metrics:\n{format_chart(chart_metrics)}\n\n"
-            f"Finish with a comparison to professionals in SG, MY, and TW. Use a polished and professional tone."
+            f"Write a 4-paragraph investor readiness analysis in third-person only. "
+            f"Start with: 'Similar individuals — such as a {age}-year-old professional with {experience} years of experience "
+            f"in the {industry} sector in {country} —'. Use structured sections: Market Positioning, Investor Appeal, "
+            f"Strategic Execution, and Regional Benchmarking (SG, MY, TW). Include realistic percentages and avoid personal pronouns."
         )
 
-        tips_prompt = (
-            f"List 10 practical tips (each with emojis) for attracting elite investors in the {industry} sector. "
-            f"Written in third-person, based on regional top performers in SG/MY/TW."
+        creative_prompt = (
+            f"Generate 10 creative business growth tips for the {industry} sector with the challenge '{challenge}'. "
+            f"Use emoji bullets and professional language. Context: {context}."
         )
 
         summary = get_openai_response(summary_prompt)
-        tips = get_openai_response(tips_prompt, temp=0.85)
-        chart_html = generate_chart_html(chart_metrics)
+        creative = get_openai_response(creative_prompt, temp=0.85)
 
-        html = "<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
-        html += chart_html
+        html = "<div style='font-family:sans-serif; padding:20px;'>"
+        html += "<h2 style='text-align:center;'>📊 Strategic Investor Readiness Report</h2>"
+        html += f"<p><strong>👤 Given Legal Name:</strong> {name}<br>"
+        html += f"<strong>🗓️ Date of Birth:</strong> {dob}<br>"
+        html += f"<strong>🏢 Company Name:</strong> {company}<br>"
+        html += f"<strong>🧑‍💼 Role or Title:</strong> {role}<br>"
+        html += f"<strong>🌍 Country:</strong> {country}<br>"
+        html += f"<strong>💼 Years of Experience:</strong> {experience}<br>"
+        html += f"<strong>🏭 Industry:</strong> {industry}<br>"
+        html += f"<strong>🎯 Main Challenge:</strong> {challenge}<br>"
+        html += f"<strong>💬 Brief Context:</strong> {context}<br>"
+        html += f"<strong>🤝 Desired Investor/Client Profile:</strong> {targetProfile}<br>"
+        html += f"<strong>📩 Email:</strong> {email}<br>"
+        html += f"<strong>👼 Referrer Name:</strong> {advisor}</p>"
 
-        if summary:
-            html += "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
-            for para in summary.split("\n"):
-                if para.strip():
-                    html += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para.strip()}</p>"
-        else:
-            html += "<p style='color:red;'>⚠️ Strategic summary could not be generated.</p>"
+        html += "<br><h3>🧠 Strategic Summary</h3>"
+        for para in summary.split("\n"):
+            if para.strip():
+                html += f"<p>{para.strip()}</p>"
 
-        if tips:
-            html += "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>"
-            for line in tips.split("\n"):
-                if line.strip():
-                    html += f"<p style='margin:16px 0; font-size:17px;'>{line.strip()}</p>"
-        else:
-            html += "<p style='color:red;'>⚠️ Creative tips could not be generated.</p>"
+        html += "<br><h3>💡 Creative Growth Suggestions</h3>"
+        for tip in creative.split("\n"):
+            if tip.strip():
+                html += f"<p>{tip.strip()}</p>"
+
+        html += "<br><p style='color:gray;font-size:14px;'><strong>🛡️ Disclaimer:</strong> This insight is generated using AI-based pattern recognition from anonymized professionals in SG, MY, TW. Please validate business decisions independently.</p>"
 
         html += (
-            "<br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>"
-            "<p style='font-size:15px; line-height:1.6;'>This report is generated by KataChat AI. "
-            "For legal or financial actions, always consult qualified professionals.</p>"
+            "<div style='background-color:#e6f7ff; color:#00529B; padding:15px; border-left:4px solid #00529B; margin:20px 0;'>"
+            "<strong>The insights in this report are generated by KataChat’s AI systems analyzing:</strong><br>"
+            "1. Anonymized peer profiles across Singapore, Malaysia, and Taiwan<br>"
+            "2. Aggregated global business benchmarks<br>"
+            "<em>All data is processed using PDPA-compliant methods with statistical thresholds (n > 1,000).</em>"
+            "</div></div>"
         )
 
-        html += (
-            "<div style='background-color:#f0f8ff; color:#003366; padding:15px; border-left:4px solid #003366; margin-top:30px;'>"
-            "<strong>AI Insights Based On:</strong><br>"
-            "🔹 Elite professional signals across SG/MY/TW<br>"
-            "🔹 Global investor attraction patterns<br>"
-            "<em>PDPA compliant. No data retained.</em></div>"
-        )
-
-        send_email(html, subject)
+        send_email(html, email)
 
         return jsonify({
-            "summary": summary or "",
-            "tips": tips or "",
+            "summary": summary,
+            "creative": creative,
             "html_result": html
         })
 
     except Exception as e:
-        logging.error(f"Investor analyze error: {e}")
-        traceback.print_exc()
+        logging.error(f"Processing error: {e}")
         return jsonify({"error": "Server error"}), 500
 
 if __name__ == "__main__":
