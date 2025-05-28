@@ -5,13 +5,13 @@ from dateutil import parser
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import openai
+from openai import OpenAI
 
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
@@ -28,7 +28,7 @@ def compute_age(dob):
 
 def get_openai_response(prompt, temp=0.7):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=temp
@@ -36,7 +36,7 @@ def get_openai_response(prompt, temp=0.7):
         return response.choices[0].message.content.strip()
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
-        return "⚠️ Unable to generate response."
+        return None
 
 def send_email(html_body, subject):
     msg = MIMEText(html_body, 'html', 'utf-8')
@@ -57,7 +57,6 @@ def investor_analyze():
         data = request.get_json(force=True)
         logging.debug(f"POST received: {data}")
 
-        name = data.get("fullName")
         dob = data.get("dob")
         company = data.get("company")
         role = data.get("role")
@@ -66,68 +65,67 @@ def investor_analyze():
         industry = data.get("industry")
         if industry == "Other":
             industry = data.get("otherIndustry", "Other")
-
         challenge = data.get("challenge")
         context = data.get("context")
         target = data.get("targetProfile")
-        email = data.get("email")
-        advisor = data.get("advisor")
         lang = data.get("lang", "en")
 
         age = compute_age(dob)
         subject = "Your Strategic Investor Insight"
 
         summary_prompt = (
-            f"A {age}-year-old {role} from {company} in {country} with {experience} years of experience is in the "
-            f"{industry} sector. Their challenge: {challenge}. Context: {context}. They wish to reach: {target}. "
-            f"Write a compelling 4-paragraph investor-facing strategic summary using third-person only."
+            f"A {age}-year-old professional from {country}, with {experience} years in the {industry} sector, "
+            f"currently serving as a {role} at a company, is seeking strategic support for: {challenge}. "
+            f"Context: {context}. They are aiming to reach: {target}. "
+            f"Write a 4-paragraph summary in third-person, using regional and global investor trends."
         )
 
         tips_prompt = (
-            f"As an investor positioning coach, provide 10 creative, actionable tips with emojis for a {age}-year-old {role} "
-            f"in the {industry} industry, tackling the challenge: '{challenge}' and aiming for: '{target}'. "
-            f"Base your suggestions on real business strategy."
+            f"Based on this profile, write 10 business-savvy tips with emojis to help improve investor attraction. "
+            f"Each tip should be practical, brief, and based on high-performing patterns among professionals in the "
+            f"{industry} sector across Singapore, Malaysia, and Taiwan."
         )
 
         summary = get_openai_response(summary_prompt)
-        tips = get_openai_response(tips_prompt, temp=0.9)
+        tips = get_openai_response(tips_prompt, temp=0.85)
 
-        html = f"<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
-        html += f"<p><strong>Name:</strong> {name}<br><strong>DOB:</strong> {dob}<br><strong>Country:</strong> {country}<br>"
-        html += f"<strong>Company:</strong> {company}<br><strong>Role:</strong> {role}<br><strong>Years of Experience:</strong> {experience}<br>"
-        html += f"<strong>Industry:</strong> {industry}<br><strong>Challenge:</strong> {challenge}<br>"
-        html += f"<strong>Context:</strong> {context}<br><strong>Target Profile:</strong> {target}<br>"
-        html += f"<strong>Advisor:</strong> {advisor}</p>"
+        html = "<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
 
-        html += "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
-        for para in summary.split("\n"):
-            if para.strip():
-                html += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para.strip()}</p>"
+        if summary:
+            html += "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
+            for para in summary.split("\n"):
+                if para.strip():
+                    html += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para.strip()}</p>"
+        else:
+            html += "<p style='color:red;'>⚠️ Strategic summary could not be generated.</p>"
 
-        html += "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>"
-        for tip in tips.split("\n"):
-            if tip.strip():
-                html += f"<p style='margin:16px 0; font-size:17px;'>{tip.strip()}</p>"
+        if tips:
+            html += "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>"
+            for line in tips.split("\n"):
+                if line.strip():
+                    html += f"<p style='margin:16px 0; font-size:17px;'>{line.strip()}</p>"
+        else:
+            html += "<p style='color:red;'>⚠️ Creative tips could not be generated.</p>"
 
         html += (
             "<br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>"
-            "<p style='font-size:15px; line-height:1.6;'>This report is generated by KataChat’s AI for reflection and insight. "
-            "For any major decisions, consult qualified professionals.</p>"
+            "<p style='font-size:15px; line-height:1.6;'>This report is generated by KataChat AI. "
+            "For legal or financial actions, always consult qualified professionals.</p>"
         )
 
         html += (
             "<div style='background-color:#f0f8ff; color:#003366; padding:15px; border-left:4px solid #003366; margin-top:30px;'>"
-            "<strong>Insights powered by:</strong><br>"
-            "🔹 Anonymized professional trends in Singapore, Malaysia, Taiwan<br>"
-            "🔹 Premium clientele benchmarks from OpenAI global databases<br>"
-            "<em>Fully PDPA-compliant. No personal data is stored or reused.</em></div>"
+            "<strong>AI Insights Based On:</strong><br>"
+            "🔹 Elite professional signals across SG/MY/TW<br>"
+            "🔹 Global investor attraction patterns<br>"
+            "<em>PDPA compliant. No data retained.</em></div>"
         )
 
         send_email(html, subject)
 
         return jsonify({
-            "summary": summary,
-            "tips": tips,
+            "summary": summary or "",
+            "tips": tips or "",
             "html_result": html
         })
 
