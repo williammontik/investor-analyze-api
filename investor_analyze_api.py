@@ -18,6 +18,7 @@ SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
+
 def compute_age(dob):
     try:
         dt = parser.parse(dob)
@@ -26,7 +27,8 @@ def compute_age(dob):
     except:
         return 0
 
-def get_openai_response(prompt, temp=0.7):
+
+def get_openai_response(prompt, temp=0.85):
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -37,6 +39,7 @@ def get_openai_response(prompt, temp=0.7):
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
         return None
+
 
 def send_email(html_body, subject):
     msg = MIMEText(html_body, 'html', 'utf-8')
@@ -50,6 +53,7 @@ def send_email(html_body, subject):
             server.send_message(msg)
     except Exception as e:
         logging.error(f"Email send error: {e}")
+
 
 def generate_chart_metrics():
     return [
@@ -70,6 +74,7 @@ def generate_chart_metrics():
         }
     ]
 
+
 def generate_chart_html(metrics):
     colors = ["#8C52FF", "#5E9CA0", "#F2A900"]
     html = ""
@@ -85,6 +90,20 @@ def generate_chart_html(metrics):
             )
         html += "<br>"
     return html
+
+
+def build_dynamic_summary(age, experience, industry, country, metrics):
+    brand, fit, stick = metrics[0]["values"]
+    conf, scale, trust = metrics[1]["values"]
+    partn, luxury, leader = metrics[2]["values"]
+
+    return f"""
+<p>Among professionals in the {industry} sector in {country}, those with similar profiles — such as a {age}-year-old with {experience} years of experience — demonstrate strong market positioning. Brand recall scores typically average {brand}%, while client fit clarity and reputation stickiness at {fit}% and {stick}%, respectively, reflect reliable traction within local and regional markets.</p>
+<p>Across regional investor landscapes, narrative confidence remains a key driver of funding interest. Comparable professionals show narrative clarity at {conf}%, with proof of trust reaching {trust}% — a critical factor in early-stage or growth-stage fundraising. Scalability model scores at {scale}% highlight ongoing opportunities to refine regional expansion strategies.</p>
+<p>In global growth contexts, partnership readiness at {partn}% suggests a favorable stance toward alliances or co-branded initiatives. Luxury channel leverage, scored at {luxury}%, reveals branding potential beyond core markets. Leadership presence, observed at {leader}%, aligns with executive influence benchmarks in high-performing teams across Asia.</p>
+<p>Benchmarked against peers in Singapore, Malaysia, and Taiwan, this profile reflects strong investor appeal and execution strength in the {industry} sector. By refining key levers and reinforcing brand signals, similar profiles continue to gain traction in both regional and global investment ecosystems.</p>
+"""
+
 
 @app.route("/investor_analyze", methods=["POST"])
 def investor_analyze():
@@ -106,54 +125,18 @@ def investor_analyze():
         target = data.get("targetProfile")
         advisor = data.get("advisor")
         email = data.get("email")
-        lang = data.get("lang", "en")
 
         age = compute_age(dob)
         subject = "Your Strategic Investor Insight"
-
-        summary_prompt = (
-            f"A {age}-year-old professional from {country}, with {experience} years in the {industry} sector, "
-            f"currently serving as a {role} at {company}, is seeking strategic support for: {challenge}. "
-            f"Context: {context}. They are aiming to reach: {target}. "
-            f"Write a 4-paragraph summary in third-person, using regional and global investor trends, "
-            f"with insights relevant to professionals in {industry} across SG/MY/TW."
-        )
-
-        tips_prompt = (
-            f"Based on this profile, write 10 business-savvy tips with emojis to help improve investor attraction. "
-            f"Each tip should be practical, brief, and based on high-performing patterns among professionals in the "
-            f"{industry} sector across Singapore, Malaysia, and Taiwan."
-        )
-
-        summary = get_openai_response(summary_prompt) or "⚠️ Strategic summary could not be generated."
-        tips = get_openai_response(tips_prompt, temp=0.85) or "⚠️ Creative tips could not be generated."
-
         chart_metrics = generate_chart_metrics()
         chart_html = generate_chart_html(chart_metrics)
+        summary_html = build_dynamic_summary(age, experience, industry, country, chart_metrics)
 
-        # Build blocks
-        title_block = "<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
-        details_block = (
-            "<br><div style='font-size:14px;color:#888;'>"
-            f"<strong>📝 Submission Details</strong><br>"
-            f"Name: {full_name}<br>"
-            f"DOB: {dob}<br>"
-            f"Country: {country}<br>"
-            f"Company: {company}<br>"
-            f"Role: {role}<br>"
-            f"Years of Experience: {experience}<br>"
-            f"Industry: {industry}<br>"
-            f"Challenge: {challenge}<br>"
-            f"Context: {context}<br>"
-            f"Target Profile: {target}<br>"
-            f"Advisor: {advisor}<br>"
-            f"Email: {email}</div><br>"
+        tips_prompt = (
+            f"Based on a professional profile in the {industry} sector with {experience} years of experience in {country}, "
+            f"write 10 business-savvy tips with emojis to improve investor attraction. Each tip should be practical, brief, and relevant to elite professionals in Singapore, Malaysia, and Taiwan."
         )
-
-        summary_block = "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
-        for para in summary.split("\n"):
-            if para.strip():
-                summary_block += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para.strip()}</p>"
+        tips = get_openai_response(tips_prompt) or "⚠️ Creative tips could not be generated."
 
         tips_block = "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>"
         for line in tips.split("\n"):
@@ -171,14 +154,32 @@ def investor_analyze():
             "<em>PDPA compliant. No data retained.</em></div>"
         )
 
-        # Final HTML
-        email_html = title_block + details_block + chart_html + summary_block + tips_block + footer_block
-        user_html = title_block + chart_html + summary_block + tips_block + footer_block  # Without details
+        title_block = "<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
+
+        details_block = (
+            "<br><div style='font-size:14px;color:#888;'>"
+            f"<strong>📝 Submission Details</strong><br>"
+            f"Name: {full_name}<br>"
+            f"DOB: {dob}<br>"
+            f"Country: {country}<br>"
+            f"Company: {company}<br>"
+            f"Role: {role}<br>"
+            f"Years of Experience: {experience}<br>"
+            f"Industry: {industry}<br>"
+            f"Challenge: {challenge}<br>"
+            f"Context: {context}<br>"
+            f"Target Profile: {target}<br>"
+            f"Advisor: {advisor}<br>"
+            f"Email: {email}</div><br>"
+        )
+
+        email_html = title_block + details_block + chart_html + summary_html + tips_block + footer_block
+        user_html = title_block + chart_html + summary_html + tips_block + footer_block
 
         send_email(email_html, subject)
 
         return jsonify({
-            "summary": summary,
+            "summary": summary_html,
             "tips": tips,
             "html_result": user_html
         })
@@ -187,6 +188,7 @@ def investor_analyze():
         logging.error(f"Investor analyze error: {e}")
         traceback.print_exc()
         return jsonify({"error": "Server error"}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
