@@ -1,6 +1,5 @@
-# === FINAL investor_analyze.py ===
-
-import os, logging, smtplib, traceback, random
+# -*- coding: utf-8 -*-
+import os, logging, smtplib, traceback, re
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -47,23 +46,25 @@ def get_openai_response(prompt, temp=0.7):
         return "⚠️ Unable to generate response."
 
 def generate_metrics():
-    return [
+    import random
+    bars = [
         {
             "title": "Market Positioning",
             "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"],
-            "values": [random.randint(68, 88) for _ in range(3)]
+            "values": [random.randint(60, 88) for _ in range(3)]
         },
         {
             "title": "Investor Appeal",
             "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"],
-            "values": [random.randint(68, 88) for _ in range(3)]
+            "values": [random.randint(60, 88) for _ in range(3)]
         },
         {
             "title": "Strategic Execution",
             "labels": ["Partnership Readiness", "Luxury Channel Leverage", "Leadership Presence"],
-            "values": [random.randint(68, 88) for _ in range(3)]
+            "values": [random.randint(60, 88) for _ in range(3)]
         }
     ]
+    return bars
 
 def send_email(html_body):
     subject = LANGUAGE["en"]["email_subject"]
@@ -83,6 +84,7 @@ def send_email(html_body):
 def investor_analyze():
     try:
         data = request.get_json(force=True)
+        logging.debug(f"POST received: {data}")
 
         name = data.get("fullName")
         dob = data.get("dob")
@@ -90,31 +92,36 @@ def investor_analyze():
         role = data.get("role")
         country = data.get("country")
         experience = data.get("experience")
-        industry = data.get("industry")
+        industry = data.get("industry") or "Unknown industry"
+        otherIndustry = data.get("otherIndustry") or ""
+        if industry == "Other" and otherIndustry:
+            industry = otherIndustry.strip()
+
         challenge = data.get("challenge")
         context = data.get("context") or "No additional context."
+        target = data.get("targetProfile") or "Not specified."
         email = data.get("email")
         advisor = data.get("advisor")
         age = compute_age(dob)
 
         metrics = generate_metrics()
 
-        # Map chart data to prompt input
-        metric_refs = []
-        for cat in metrics:
-            for label, val in zip(cat['labels'], cat['values']):
-                metric_refs.append(f"{label}: {val}%")
+        metric_text = "\n".join([
+            f"{m['title']}: " + ", ".join([
+                f"{label}: {val}%" for label, val in zip(m['labels'], m['values'])
+            ]) for m in metrics
+        ])
 
         summary_prompt = (
-            f"You are analyzing a professional in the {industry} industry from {country}, aged {age}, with {experience} years of experience in the role of {role}.\n"
-            f"Their current challenge is: {challenge}. Context provided: {context}\n"
-            f"Here are their self-positioning metrics: {'; '.join(metric_refs)}\n"
-            f"Based on similar industry profiles, generate a 4-paragraph third-person strategic summary. Do not use the person's name. Frame all insights in terms of pattern recognition and high-level investor interest."
+            f"An elite founder in the {industry} industry, aged {age}, based in {country}, currently serving as {role} at {company}, "
+            f"with {experience} years of experience, is seeking support in: {challenge}.\n\nContext: {context}.\n\n"
+            f"Here are recent performance signals:\n{metric_text}\n\n"
+            f"Write a 4-paragraph investor-facing positioning summary in third-person. Avoid using 'you'."
         )
 
         suggestions_prompt = (
-            f"Given this profile and the following metrics: {'; '.join(metric_refs)},\n"
-            f"write 10 practical strategic suggestions (with emojis) to improve investor/client appeal. Do not use second-person language."
+            f"Based on the context above, write 10 strategic growth tips with emojis to attract elite clients/investors. "
+            f"Include messaging, credibility, and clarity ideas."
         )
 
         summary = get_openai_response(summary_prompt)
@@ -135,21 +142,15 @@ def investor_analyze():
             chart_html += "<br>"
 
         html_result = f"<h4 style='text-align:center;'>{report_title}</h4>"
-        html_result += (
-            f"<p><strong>🌍 Country:</strong> {country}<br>"
-            f"<strong>🏢 Company:</strong> {company}<br>"
-            f"<strong>🧑‍💼 Role:</strong> {role}<br>"
-            f"<strong>📈 Experience:</strong> {experience} years<br>"
-            f"<strong>🏭 Industry:</strong> {industry}</p><br>"
-        )
         html_result += chart_html
-        html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Strategic Summary:</div><br>"
+        html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
         html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
         html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Strategic Suggestions:</div><br>"
         html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
         html_result += (
             f"<br><br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>"
-            f"<p style='font-size:15px; line-height:1.6;'>📩 This report is AI-generated using anonymized global patterns from professionals of similar age, experience, and industry. Please consult qualified advisors before taking business action.</p>"
+            f"<p style='font-size:15px; line-height:1.6;'>📩 This report has been emailed to you. All content is AI-generated and for strategic inspiration only.\n"
+            f"Please consult relevant business or legal experts for final decisions.</p>"
         )
 
         send_email(html_result)
