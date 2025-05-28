@@ -5,19 +5,18 @@ from dateutil import parser
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from openai import OpenAI
+import openai
 
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-
 
 def compute_age(dob):
     try:
@@ -27,19 +26,17 @@ def compute_age(dob):
     except:
         return 0
 
-
 def get_openai_response(prompt, temp=0.7):
     try:
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=temp
         )
-        return response.choices[0].message.content.strip()
+        return response['choices'][0]['message']['content'].strip()
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
         return None
-
 
 def send_email(html_body, subject):
     msg = MIMEText(html_body, 'html', 'utf-8')
@@ -53,7 +50,6 @@ def send_email(html_body, subject):
             server.send_message(msg)
     except Exception as e:
         logging.error(f"Email send error: {e}")
-
 
 def generate_chart_metrics():
     return [
@@ -74,7 +70,6 @@ def generate_chart_metrics():
         }
     ]
 
-
 def generate_chart_html(metrics):
     colors = ["#8C52FF", "#5E9CA0", "#F2A900"]
     html = ""
@@ -91,7 +86,6 @@ def generate_chart_html(metrics):
         html += "<br>"
     return html
 
-
 @app.route("/investor_analyze", methods=["POST"])
 def investor_analyze():
     try:
@@ -99,7 +93,6 @@ def investor_analyze():
         logging.debug(f"POST received: {data}")
 
         dob = data.get("dob")
-        company = data.get("company")
         role = data.get("role")
         country = data.get("country")
         experience = data.get("experience")
@@ -110,36 +103,27 @@ def investor_analyze():
         context = data.get("context")
         target = data.get("targetProfile")
         lang = data.get("lang", "en")
-        gender = "male" if "he" in role.lower() or "mr" in company.lower() else "female"
 
         age = compute_age(dob)
         subject = "Your Strategic Investor Insight"
-
         chart_metrics = generate_chart_metrics()
 
-        # Use some chart values to generate meaningful prompt
         summary_prompt = (
-            f"Write a strategic investor insight summary for a similar {age}-year-old {gender} professional "
-            f"with {experience} years in the {industry} sector from {country}. "
-            f"The challenge is: {challenge}. Context: {context}. They are targeting: {target}. "
-            f"Compare this profile with other professionals across Singapore, Malaysia, and Taiwan. "
-            f"Base the strategic summary on the following metrics (percentages are examples and can be creatively interpreted):\n\n"
-            f"Market Positioning: {chart_metrics[0]['labels'][0]} = {chart_metrics[0]['values'][0]}%, "
-            f"{chart_metrics[0]['labels'][1]} = {chart_metrics[0]['values'][1]}%, "
-            f"{chart_metrics[0]['labels'][2]} = {chart_metrics[0]['values'][2]}%\n"
-            f"Investor Appeal: {chart_metrics[1]['labels'][0]} = {chart_metrics[1]['values'][0]}%, "
-            f"{chart_metrics[1]['labels'][1]} = {chart_metrics[1]['values'][1]}%, "
-            f"{chart_metrics[1]['labels'][2]} = {chart_metrics[1]['values'][2]}%\n"
-            f"Strategic Execution: {chart_metrics[2]['labels'][0]} = {chart_metrics[2]['values'][0]}%, "
-            f"{chart_metrics[2]['labels'][1]} = {chart_metrics[2]['values'][1]}%, "
-            f"{chart_metrics[2]['labels'][2]} = {chart_metrics[2]['values'][2]}%\n\n"
-            f"Use third-person tone. Write 4 engaging paragraphs with meaningful insights, as if you're comparing this person to similar elite profiles."
+            f"Write a professional investor-style report for an audience. Do NOT refer to the person directly.\n"
+            f"Instead, use phrases like: 'Similar 41-year-old female with 14 years in tech...', "
+            f"and describe their positioning, growth, and investor appeal based on:\n"
+            f"Industry: {industry}, Country: {country}, Role: {role}, Age: {age}, Experience: {experience} years, "
+            f"Challenge: {challenge}, Context: {context}, Goal: {target}.\n\n"
+            f"Base the insights around these chart values:\n"
+            f"Market Positioning: {chart_metrics[0]['values']}, Investor Appeal: {chart_metrics[1]['values']}, "
+            f"Strategic Execution: {chart_metrics[2]['values']}.\n\n"
+            f"Write in 4 paragraphs. Avoid saying 'this professional'. Just describe what such professionals often show."
         )
 
         tips_prompt = (
-            f"Based on this profile in the {industry} sector with {experience} years of experience, "
-            f"write 10 business-savvy tips with emojis to improve investor attraction across Singapore, Malaysia, and Taiwan. "
-            f"Each tip should be practical, sharp, and tailored for premium investors."
+            f"Write 10 concise, regionally relevant business tips with emojis for professionals in the {industry} "
+            f"industry with {experience} years of experience in {country}. Focus on solving '{challenge}' based on "
+            f"trends from Singapore, Malaysia, and Taiwan. Keep them energetic and useful."
         )
 
         summary = get_openai_response(summary_prompt)
@@ -191,7 +175,6 @@ def investor_analyze():
         logging.error(f"Investor analyze error: {e}")
         traceback.print_exc()
         return jsonify({"error": "Server error"}), 500
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
