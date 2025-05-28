@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback
+import os, logging, smtplib, traceback, random
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -18,6 +18,7 @@ SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
+
 def compute_age(dob):
     try:
         dt = parser.parse(dob)
@@ -25,6 +26,7 @@ def compute_age(dob):
         return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
     except:
         return 0
+
 
 def get_openai_response(prompt, temp=0.7):
     try:
@@ -37,6 +39,7 @@ def get_openai_response(prompt, temp=0.7):
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
         return None
+
 
 def send_email(html_body, subject):
     msg = MIMEText(html_body, 'html', 'utf-8')
@@ -51,8 +54,8 @@ def send_email(html_body, subject):
     except Exception as e:
         logging.error(f"Email send error: {e}")
 
+
 def generate_chart_metrics():
-    import random
     return [
         {
             "title": "Market Positioning",
@@ -71,6 +74,7 @@ def generate_chart_metrics():
         }
     ]
 
+
 def generate_chart_html(metrics):
     colors = ["#8C52FF", "#5E9CA0", "#F2A900"]
     html = ""
@@ -86,6 +90,7 @@ def generate_chart_html(metrics):
             )
         html += "<br>"
     return html
+
 
 @app.route("/investor_analyze", methods=["POST"])
 def investor_analyze():
@@ -105,44 +110,52 @@ def investor_analyze():
         context = data.get("context")
         target = data.get("targetProfile")
         lang = data.get("lang", "en")
+        gender = "male" if "he" in role.lower() or "mr" in company.lower() else "female"
 
         age = compute_age(dob)
         subject = "Your Strategic Investor Insight"
 
+        chart_metrics = generate_chart_metrics()
+
+        # Use some chart values to generate meaningful prompt
         summary_prompt = (
-            f"A {age}-year-old professional from {country}, with {experience} years in the {industry} sector, "
-            f"currently serving as a {role} at a company, is seeking strategic support for: {challenge}. "
-            f"Context: {context}. They are aiming to reach: {target}. "
-            f"Write a 4-paragraph summary in third-person, using regional and global investor trends."
+            f"Write a strategic investor insight summary for a similar {age}-year-old {gender} professional "
+            f"with {experience} years in the {industry} sector from {country}. "
+            f"The challenge is: {challenge}. Context: {context}. They are targeting: {target}. "
+            f"Compare this profile with other professionals across Singapore, Malaysia, and Taiwan. "
+            f"Base the strategic summary on the following metrics (percentages are examples and can be creatively interpreted):\n\n"
+            f"Market Positioning: {chart_metrics[0]['labels'][0]} = {chart_metrics[0]['values'][0]}%, "
+            f"{chart_metrics[0]['labels'][1]} = {chart_metrics[0]['values'][1]}%, "
+            f"{chart_metrics[0]['labels'][2]} = {chart_metrics[0]['values'][2]}%\n"
+            f"Investor Appeal: {chart_metrics[1]['labels'][0]} = {chart_metrics[1]['values'][0]}%, "
+            f"{chart_metrics[1]['labels'][1]} = {chart_metrics[1]['values'][1]}%, "
+            f"{chart_metrics[1]['labels'][2]} = {chart_metrics[1]['values'][2]}%\n"
+            f"Strategic Execution: {chart_metrics[2]['labels'][0]} = {chart_metrics[2]['values'][0]}%, "
+            f"{chart_metrics[2]['labels'][1]} = {chart_metrics[2]['values'][1]}%, "
+            f"{chart_metrics[2]['labels'][2]} = {chart_metrics[2]['values'][2]}%\n\n"
+            f"Use third-person tone. Write 4 engaging paragraphs with meaningful insights, as if you're comparing this person to similar elite profiles."
         )
 
         tips_prompt = (
-            f"Based on this profile, write 10 business-savvy tips with emojis to help improve investor attraction. "
-            f"Each tip should be practical, brief, and based on high-performing patterns among professionals in the "
-            f"{industry} sector across Singapore, Malaysia, and Taiwan."
+            f"Based on this profile in the {industry} sector with {experience} years of experience, "
+            f"write 10 business-savvy tips with emojis to improve investor attraction across Singapore, Malaysia, and Taiwan. "
+            f"Each tip should be practical, sharp, and tailored for premium investors."
         )
 
         summary = get_openai_response(summary_prompt)
         tips = get_openai_response(tips_prompt, temp=0.85)
-        chart_metrics = generate_chart_metrics()
         chart_html = generate_chart_html(chart_metrics)
 
         html = "<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
         html += chart_html
 
-        html += "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
         if summary:
+            html += "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
             for para in summary.split("\n"):
                 if para.strip():
                     html += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para.strip()}</p>"
         else:
-            html += (
-                "<p style='line-height:1.7; font-size:16px;'>Professionals with similar experience often show strong "
-                "Brand Recall (74%) and Trust Signals (85%), making them credible in elite positioning. Yet, metrics like "
-                "Audience Alignment (68%) or Long-Term Value Story (64%) indicate room to better align with affluent expectations. "
-                "Strategic execution scores such as Partnership Readiness (72%) and Leadership Presence (80%) reflect growth potential — "
-                "but scaling requires sharper JV framing and investor narratives.</p>"
-            )
+            html += "<p style='color:red;'>⚠️ Strategic summary could not be generated.</p>"
 
         if tips:
             html += "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>"
@@ -178,6 +191,7 @@ def investor_analyze():
         logging.error(f"Investor analyze error: {e}")
         traceback.print_exc()
         return jsonify({"error": "Server error"}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
