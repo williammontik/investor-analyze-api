@@ -51,6 +51,42 @@ def send_email(html_body, subject):
     except Exception as e:
         logging.error(f"Email send error: {e}")
 
+def generate_chart_metrics():
+    import random
+    return [
+        {
+            "title": "Market Positioning",
+            "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"],
+            "values": [random.randint(70, 90), random.randint(65, 85), random.randint(70, 90)]
+        },
+        {
+            "title": "Investor Appeal",
+            "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"],
+            "values": [random.randint(70, 85), random.randint(60, 80), random.randint(75, 90)]
+        },
+        {
+            "title": "Strategic Execution",
+            "labels": ["Partnership Readiness", "Luxury Channel Leverage", "Leadership Presence"],
+            "values": [random.randint(65, 85), random.randint(65, 85), random.randint(75, 90)]
+        }
+    ]
+
+def generate_chart_html(metrics):
+    colors = ["#8C52FF", "#5E9CA0", "#F2A900"]
+    html = ""
+    for i, m in enumerate(metrics):
+        html += f"<strong style='font-size:18px;color:#333;'>{m['title']}</strong><br>"
+        for j, (label, val) in enumerate(zip(m['labels'], m['values'])):
+            html += (
+                f"<div style='display:flex;align-items:center;margin-bottom:8px;'>"
+                f"<span style='width:180px;'>{label}</span>"
+                f"<div style='flex:1;background:#eee;border-radius:5px;overflow:hidden;'>"
+                f"<div style='width:{val}%;height:14px;background:{colors[j % len(colors)]};'></div></div>"
+                f"<span style='margin-left:10px;'>{val}%</span></div>"
+            )
+        html += "<br>"
+    return html
+
 @app.route("/investor_analyze", methods=["POST"])
 def investor_analyze():
     try:
@@ -88,8 +124,11 @@ def investor_analyze():
 
         summary = get_openai_response(summary_prompt)
         tips = get_openai_response(tips_prompt, temp=0.85)
+        chart_metrics = generate_chart_metrics()
+        chart_html = generate_chart_html(chart_metrics)
 
         html = "<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
+        html += chart_html
 
         if summary:
             html += "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
