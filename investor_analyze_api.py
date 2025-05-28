@@ -131,6 +131,25 @@ def investor_analyze():
         chart_html = generate_chart_html(chart_metrics)
 
         html = "<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
+
+        # 📝 Submission Details at the TOP
+        html += (
+            "<br><div style='font-size:14px;color:#888;'>"
+            f"<strong>📝 Submission Details</strong><br>"
+            f"Name: {full_name}<br>"
+            f"DOB: {dob}<br>"
+            f"Country: {country}<br>"
+            f"Company: {company}<br>"
+            f"Role: {role}<br>"
+            f"Years of Experience: {experience}<br>"
+            f"Industry: {industry}<br>"
+            f"Challenge: {challenge}<br>"
+            f"Context: {context}<br>"
+            f"Target Profile: {target}<br>"
+            f"Advisor: {advisor}<br>"
+            f"Email: {email}</div><br>"
+        )
+
         html += chart_html
 
         if summary:
@@ -161,23 +180,6 @@ def investor_analyze():
             "🔹 Elite professional signals across SG/MY/TW<br>"
             "🔹 Global investor attraction patterns<br>"
             "<em>PDPA compliant. No data retained.</em></div>"
-        )
-
-        html += (
-            "<br><div style='font-size:14px;color:#888;'>"
-            f"<strong>📝 Submission Details</strong><br>"
-            f"Name: {full_name}<br>"
-            f"DOB: {dob}<br>"
-            f"Country: {country}<br>"
-            f"Company: {company}<br>"
-            f"Role: {role}<br>"
-            f"Years of Experience: {experience}<br>"
-            f"Industry: {industry}<br>"
-            f"Challenge: {challenge}<br>"
-            f"Context: {context}<br>"
-            f"Target Profile: {target}<br>"
-            f"Advisor: {advisor}<br>"
-            f"Email: {email}</div>"
         )
 
         send_email(html, subject)
