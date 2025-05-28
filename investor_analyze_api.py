@@ -97,12 +97,13 @@ def build_dynamic_summary(age, experience, industry, country, metrics):
     conf, scale, trust = metrics[1]["values"]
     partn, luxury, leader = metrics[2]["values"]
 
-    return f"""
-<p>Among professionals in the {industry} sector in {country}, those with similar profiles — such as a {age}-year-old with {experience} years of experience — demonstrate strong market positioning. Brand recall scores typically average {brand}%, while client fit clarity and reputation stickiness at {fit}% and {stick}%, respectively, reflect reliable traction within local and regional markets.</p>
-<p>Across regional investor landscapes, narrative confidence remains a key driver of funding interest. Comparable professionals show narrative clarity at {conf}%, with proof of trust reaching {trust}% — a critical factor in early-stage or growth-stage fundraising. Scalability model scores at {scale}% highlight ongoing opportunities to refine regional expansion strategies.</p>
-<p>In global growth contexts, partnership readiness at {partn}% suggests a favorable stance toward alliances or co-branded initiatives. Luxury channel leverage, scored at {luxury}%, reveals branding potential beyond core markets. Leadership presence, observed at {leader}%, aligns with executive influence benchmarks in high-performing teams across Asia.</p>
-<p>Benchmarked against peers in Singapore, Malaysia, and Taiwan, this profile reflects strong investor appeal and execution strength in the {industry} sector. By refining key levers and reinforcing brand signals, similar profiles continue to gain traction in both regional and global investment ecosystems.</p>
-"""
+    return (
+        "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
+        f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>Among professionals in the {industry} sector in {country}, those with similar profiles — such as a {age}-year-old with {experience} years of experience — demonstrate strong market positioning. Brand recall scores typically average {brand}%, while client fit clarity and reputation stickiness at {fit}% and {stick}%, respectively, reflect reliable traction within local and regional markets.</p>"
+        f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>Across regional investor landscapes, narrative confidence remains a key driver of funding interest. Comparable professionals show narrative clarity at {conf}%, with proof of trust reaching {trust}% — a critical factor in early-stage or growth-stage fundraising. Scalability model scores at {scale}% highlight ongoing opportunities to refine regional expansion strategies.</p>"
+        f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>In global growth contexts, partnership readiness at {partn}% suggests a favorable stance toward alliances or co-branded initiatives. Luxury channel leverage, scored at {luxury}%, reveals branding potential beyond core markets. Leadership presence, observed at {leader}%, aligns with executive influence benchmarks in high-performing teams across Asia.</p>"
+        f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>Benchmarked against peers in Singapore, Malaysia, and Taiwan, this profile reflects strong investor appeal and execution strength in the {industry} sector. By refining key levers and reinforcing brand signals, similar profiles continue to gain traction in both regional and global investment ecosystems.</p>"
+    )
 
 
 @app.route("/investor_analyze", methods=["POST"])
