@@ -18,7 +18,6 @@ SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
-
 def compute_age(dob):
     try:
         dt = parser.parse(dob)
@@ -26,7 +25,6 @@ def compute_age(dob):
         return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
     except:
         return 0
-
 
 def get_openai_response(prompt, temp=0.85):
     try:
@@ -40,7 +38,6 @@ def get_openai_response(prompt, temp=0.85):
         logging.error(f"OpenAI error: {e}")
         return None
 
-
 def send_email(html_body, subject):
     msg = MIMEText(html_body, 'html', 'utf-8')
     msg['Subject'] = subject
@@ -53,7 +50,6 @@ def send_email(html_body, subject):
             server.send_message(msg)
     except Exception as e:
         logging.error(f"Email send error: {e}")
-
 
 def generate_chart_metrics():
     return [
@@ -74,7 +70,6 @@ def generate_chart_metrics():
         }
     ]
 
-
 def generate_chart_html(metrics):
     colors = ["#8C52FF", "#5E9CA0", "#F2A900"]
     html = ""
@@ -91,7 +86,6 @@ def generate_chart_html(metrics):
         html += "<br>"
     return html
 
-
 def build_dynamic_summary(age, experience, industry, country, metrics):
     brand, fit, stick = metrics[0]["values"]
     conf, scale, trust = metrics[1]["values"]
@@ -104,7 +98,6 @@ def build_dynamic_summary(age, experience, industry, country, metrics):
         f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>In global growth contexts, partnership readiness at {partn}% suggests a favorable stance toward alliances or co-branded initiatives. Luxury channel leverage, scored at {luxury}%, reveals branding potential beyond core markets. Leadership presence, observed at {leader}%, aligns with executive influence benchmarks in high-performing teams across Asia.</p>"
         f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>Benchmarked against peers in Singapore, Malaysia, and Taiwan, this profile reflects strong investor appeal and execution strength in the {industry} sector. By refining key levers and reinforcing brand signals, similar profiles continue to gain traction in both regional and global investment ecosystems.</p>"
     )
-
 
 @app.route("/investor_analyze", methods=["POST"])
 def investor_analyze():
@@ -189,7 +182,6 @@ def investor_analyze():
         logging.error(f"Investor analyze error: {e}")
         traceback.print_exc()
         return jsonify({"error": "Server error"}), 500
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
