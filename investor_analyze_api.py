@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback, re
+import os, logging, smtplib, traceback
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from openai import OpenAI
+import random
+import openai
 
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
@@ -35,36 +36,42 @@ def compute_age(dob):
 
 def get_openai_response(prompt, temp=0.7):
     try:
-        result = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=temp
         )
-        return result.choices[0].message.content
+        return response["choices"][0]["message"]["content"]
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
         return "⚠️ Unable to generate response."
 
 def generate_metrics():
-    import random
-    bars = [
+    colors = ["#8C52FF", "#FFB800", "#00B8A9"]
+    bar_sets = [
         {
             "title": "Market Positioning",
-            "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"],
-            "values": [random.randint(60, 88) for _ in range(3)]
+            "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"]
         },
         {
             "title": "Investor Appeal",
-            "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"],
-            "values": [random.randint(60, 88) for _ in range(3)]
+            "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"]
         },
         {
             "title": "Strategic Execution",
-            "labels": ["Partnership Readiness", "Luxury Channel Leverage", "Leadership Presence"],
-            "values": [random.randint(60, 88) for _ in range(3)]
+            "labels": ["Partnership Readiness", "Luxury Channel Leverage", "Leadership Presence"]
         }
     ]
-    return bars
+    
+    results = []
+    for block in bar_sets:
+        results.append({
+            "title": block["title"],
+            "labels": block["labels"],
+            "values": [random.randint(68, 84) for _ in block["labels"]],
+            "colors": random.sample(colors, len(block["labels"]))
+        })
+    return results
 
 def send_email(html_body):
     subject = LANGUAGE["en"]["email_subject"]
@@ -92,65 +99,54 @@ def investor_analyze():
         role = data.get("role")
         country = data.get("country")
         experience = data.get("experience")
-        industry = data.get("industry") or "Unknown industry"
-        otherIndustry = data.get("otherIndustry") or ""
-        if industry == "Other" and otherIndustry:
-            industry = otherIndustry.strip()
-
         challenge = data.get("challenge")
         context = data.get("context") or "No additional context."
         target = data.get("targetProfile") or "Not specified."
         email = data.get("email")
         advisor = data.get("advisor")
+        industry = data.get("industry") or "Unknown industry"
         age = compute_age(dob)
 
-        metrics = generate_metrics()
-
-        metric_text = "\n".join([
-            f"{m['title']}: " + ", ".join([
-                f"{label}: {val}%" for label, val in zip(m['labels'], m['values'])
-            ]) for m in metrics
-        ])
-
         summary_prompt = (
-            f"An elite founder in the {industry} industry, aged {age}, based in {country}, currently serving as {role} at {company}, "
-            f"with {experience} years of experience, is seeking support in: {challenge}.\n\nContext: {context}.\n\n"
-            f"Here are recent performance signals:\n{metric_text}\n\n"
-            f"Write a 4-paragraph investor-facing positioning summary in third-person. Avoid using 'you'."
+            f"A founder in the {industry} sector, aged {age}, based in {country}, currently serving as {role} at {company},"
+            f" is facing the challenge: {challenge}. Context: {context}."
+            f" Write a 3-paragraph investor-facing positioning report, referring to patterns seen in similar-age, similar-role professionals"
+            f" from global and regional datasets (e.g., insurance agents, business owners). Avoid using 'you'."
         )
 
-        suggestions_prompt = (
-            f"Based on the context above, write 10 strategic growth tips with emojis to attract elite clients/investors. "
-            f"Include messaging, credibility, and clarity ideas."
+        tips_prompt = (
+            f"Based on that context, write 10 elite client/investor attraction tips with emojis and 1-line spacing."
+            f" Include branding, credibility, clarity, and luxury channel ideas."
         )
 
         summary = get_openai_response(summary_prompt)
-        creative = get_openai_response(suggestions_prompt, temp=0.85)
+        creative = get_openai_response(tips_prompt, temp=0.85)
+        metrics = generate_metrics()
         report_title = LANGUAGE["en"]["report_title"]
 
         chart_html = ""
         for m in metrics:
-            chart_html += f"<strong>{m['title']}</strong><br>"
-            for label, val in zip(m['labels'], m['values']):
+            chart_html += f"<strong style='font-size:18px'>{m['title']}</strong><br>"
+            for label, val, color in zip(m['labels'], m['values'], m['colors']):
                 chart_html += (
                     f"<div style='display:flex;align-items:center;margin-bottom:8px;'>"
                     f"<span style='width:180px;'>{label}</span>"
                     f"<div style='flex:1;background:#eee;border-radius:5px;overflow:hidden;'>"
-                    f"<div style='width:{val}%;height:14px;background:#8C52FF;'></div></div>"
+                    f"<div style='width:{val}%;height:14px;background:{color};'></div></div>"
                     f"<span style='margin-left:10px;'>{val}%</span></div>"
                 )
             chart_html += "<br>"
 
-        html_result = f"<h4 style='text-align:center;'>{report_title}</h4>"
+        html_result = f"<h4 style='text-align:center;font-size:24px'>{report_title}</h4>"
         html_result += chart_html
-        html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
+        html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Strategic Summary:</div><br>"
         html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
-        html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Strategic Suggestions:</div><br>"
-        html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+        html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Tips:</div><br>"
+        html_result += ''.join([f"<p style='margin:14px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
         html_result += (
             f"<br><br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>"
-            f"<p style='font-size:15px; line-height:1.6;'>📩 This report has been emailed to you. All content is AI-generated and for strategic inspiration only.\n"
-            f"Please consult relevant business or legal experts for final decisions.</p>"
+            f"<p style='font-size:15px; line-height:1.6;'>📩 This report has been emailed to you. All content is AI-generated and for strategic inspiration only."
+            f" Please consult relevant business or legal experts for final decisions.</p>"
         )
 
         send_email(html_result)
