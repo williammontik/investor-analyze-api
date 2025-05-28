@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback, random
+import os, logging, smtplib, traceback
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import openai
+from openai import OpenAI
+import random
 
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
@@ -28,12 +29,12 @@ def compute_age(dob):
 
 def get_openai_response(prompt, temp=0.7):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=temp
         )
-        return response['choices'][0]['message']['content'].strip()
+        return response.choices[0].message.content.strip()
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
         return None
@@ -93,6 +94,7 @@ def investor_analyze():
         logging.debug(f"POST received: {data}")
 
         dob = data.get("dob")
+        company = data.get("company")
         role = data.get("role")
         country = data.get("country")
         experience = data.get("experience")
@@ -103,27 +105,30 @@ def investor_analyze():
         context = data.get("context")
         target = data.get("targetProfile")
         lang = data.get("lang", "en")
-
         age = compute_age(dob)
+
         subject = "Your Strategic Investor Insight"
         chart_metrics = generate_chart_metrics()
 
+        def format_chart_snippet(metrics):
+            out = []
+            for group in metrics:
+                vals = ", ".join([f"{label} = {val}%" for label, val in zip(group["labels"], group["values"])] )
+                out.append(f"{group['title']}: {vals}")
+            return "\n".join(out)
+
         summary_prompt = (
-            f"Write a professional investor-style report for an audience. Do NOT refer to the person directly.\n"
-            f"Instead, use phrases like: 'Similar 41-year-old female with 14 years in tech...', "
-            f"and describe their positioning, growth, and investor appeal based on:\n"
-            f"Industry: {industry}, Country: {country}, Role: {role}, Age: {age}, Experience: {experience} years, "
-            f"Challenge: {challenge}, Context: {context}, Goal: {target}.\n\n"
-            f"Base the insights around these chart values:\n"
-            f"Market Positioning: {chart_metrics[0]['values']}, Investor Appeal: {chart_metrics[1]['values']}, "
-            f"Strategic Execution: {chart_metrics[2]['values']}.\n\n"
-            f"Write in 4 paragraphs. Avoid saying 'this professional'. Just describe what such professionals often show."
+            f"📍 Example: Strategic Summary (Industry: {industry})\n"
+            f"🧠 Strategic Summary:\n\n"
+            f"Write a 4-paragraph investor insight summary for a similar {age}-year-old with {experience} years in the {industry} sector from {country}.\n"
+            f"Base the insights on the following chart data:\n\n"
+            f"{format_chart_snippet(chart_metrics)}\n\n"
+            f"Compare with regional professionals in SG/MY/TW. Do not use personal details or names. Just refer to them as 'a similar profile'."
         )
 
         tips_prompt = (
-            f"Write 10 concise, regionally relevant business tips with emojis for professionals in the {industry} "
-            f"industry with {experience} years of experience in {country}. Focus on solving '{challenge}' based on "
-            f"trends from Singapore, Malaysia, and Taiwan. Keep them energetic and useful."
+            f"Based on this profile, write 10 brief business-savvy tips with emojis to help attract elite investors."
+            f" Each tip should be smart, practical, and inspired by top-performing {industry} professionals in SG, MY, TW."
         )
 
         summary = get_openai_response(summary_prompt)
