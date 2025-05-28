@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback
+import os, logging, smtplib, io, base64, random
 from datetime import datetime
-from dateutil import parser
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import matplotlib.pyplot as plt
 from openai import OpenAI
 
 app = Flask(__name__)
@@ -18,13 +18,21 @@ SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
-def compute_age(dob):
-    try:
-        dt = parser.parse(dob)
-        today = datetime.today()
-        return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
-    except:
-        return 0
+def generate_chart_image(labels, values, title):
+    colors = ['#4CAF50', '#2196F3', '#FFC107']
+    fig, ax = plt.subplots(figsize=(8, 3))
+    bars = ax.barh(labels, values, color=[colors[i % 3] for i in range(len(labels))])
+    ax.set_xlim(0, 100)
+    ax.set_title(title, fontsize=14, fontweight='bold')
+    ax.invert_yaxis()
+    for bar in bars:
+        ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2, f'{bar.get_width():.0f}%', va='center')
+    plt.tight_layout()
+    img = io.BytesIO()
+    plt.savefig(img, format='png', bbox_inches='tight')
+    plt.close()
+    img.seek(0)
+    return base64.b64encode(img.read()).decode('utf-8')
 
 def get_openai_response(prompt, temp=0.7):
     try:
@@ -33,12 +41,12 @@ def get_openai_response(prompt, temp=0.7):
             messages=[{"role": "user", "content": prompt}],
             temperature=temp
         )
-        return response.choices[0].message.content.strip()
+        return response.choices[0].message.content
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
-        return None
+        return "⚠️ Unable to generate response."
 
-def send_email(html_body, subject):
+def send_email(subject, html_body):
     msg = MIMEText(html_body, 'html', 'utf-8')
     msg['Subject'] = subject
     msg['From'] = SMTP_USERNAME
@@ -51,126 +59,89 @@ def send_email(html_body, subject):
     except Exception as e:
         logging.error(f"Email send error: {e}")
 
-def generate_chart_metrics():
-    import random
-    return [
-        {
-            "title": "Market Positioning",
-            "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"],
-            "values": [random.randint(70, 90), random.randint(65, 85), random.randint(70, 90)]
-        },
-        {
-            "title": "Investor Appeal",
-            "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"],
-            "values": [random.randint(70, 85), random.randint(60, 80), random.randint(75, 90)]
-        },
-        {
-            "title": "Strategic Execution",
-            "labels": ["Partnership Readiness", "Luxury Channel Leverage", "Leadership Presence"],
-            "values": [random.randint(65, 85), random.randint(65, 85), random.randint(75, 90)]
-        }
-    ]
-
-def generate_chart_html(metrics):
-    colors = ["#8C52FF", "#5E9CA0", "#F2A900"]
-    html = ""
-    for i, m in enumerate(metrics):
-        html += f"<strong style='font-size:18px;color:#333;'>{m['title']}</strong><br>"
-        for j, (label, val) in enumerate(zip(m['labels'], m['values'])):
-            html += (
-                f"<div style='display:flex;align-items:center;margin-bottom:8px;'>"
-                f"<span style='width:180px;'>{label}</span>"
-                f"<div style='flex:1;background:#eee;border-radius:5px;overflow:hidden;'>"
-                f"<div style='width:{val}%;height:14px;background:{colors[j % len(colors)]};'></div></div>"
-                f"<span style='margin-left:10px;'>{val}%</span></div>"
-            )
-        html += "<br>"
-    return html
-
 @app.route("/investor_analyze", methods=["POST"])
 def investor_analyze():
     try:
         data = request.get_json(force=True)
-        logging.debug(f"POST received: {data}")
 
+        fullName = data.get("fullName")
         dob = data.get("dob")
         company = data.get("company")
         role = data.get("role")
         country = data.get("country")
         experience = data.get("experience")
         industry = data.get("industry")
-        if industry == "Other":
-            industry = data.get("otherIndustry", "Other")
         challenge = data.get("challenge")
         context = data.get("context")
-        target = data.get("targetProfile")
-        lang = data.get("lang", "en")
+        targetProfile = data.get("targetProfile")
+        email = data.get("email")
+        advisor = data.get("advisor")
 
-        age = compute_age(dob)
-        subject = "Your Strategic Investor Insight"
+        chart_data = {
+            "Market Positioning": {
+                "Brand Recall": random.randint(65, 85),
+                "Audience Alignment": random.randint(60, 80),
+                "Relationship Retention": random.randint(70, 90)
+            },
+            "Investor Appeal": {
+                "Solution Narrative": random.randint(70, 90),
+                "Long-Term Value Story": random.randint(60, 80),
+                "Trust Signals": random.randint(75, 95)
+            },
+            "Strategic Execution": {
+                "Premium Funnel Readiness": random.randint(60, 85),
+                "Partnership Potential": random.randint(60, 80),
+                "Personal Brand Energy": random.randint(70, 90)
+            }
+        }
 
-        summary_prompt = (
-            f"A {age}-year-old professional from {country}, with {experience} years in the {industry} sector, "
-            f"currently serving as a {role} at a company, is seeking strategic support for: {challenge}. "
-            f"Context: {context}. They are aiming to reach: {target}. "
-            f"Write a 4-paragraph summary in third-person, using regional and global investor trends."
+        chart_html = ""
+        for title, section in chart_data.items():
+            labels = list(section.keys())
+            values = list(section.values())
+            img_b64 = generate_chart_image(labels, values, title)
+            chart_html += f"<h4>{title}</h4><img src='data:image/png;base64,{img_b64}' style='max-width:100%;margin:20px 0;'>"
+
+        prompt_summary = (
+            f"You are analyzing a {role} in the {industry} industry from {country} with {experience} years of experience. "
+            f"Their challenge is: {challenge}. Context: {context}. Chart scores: {chart_data}. "
+            f"Write a strategic summary in 4 paragraphs. Avoid mentioning the person's name."
         )
 
-        tips_prompt = (
-            f"Based on this profile, write 10 business-savvy tips with emojis to help improve investor attraction. "
-            f"Each tip should be practical, brief, and based on high-performing patterns among professionals in the "
-            f"{industry} sector across Singapore, Malaysia, and Taiwan."
+        prompt_tips = (
+            f"Suggest 10 investor positioning strategies for someone in {industry} facing the challenge: '{challenge}'. "
+            f"Add emojis. Use bullet points. Audience: {targetProfile}."
         )
 
-        summary = get_openai_response(summary_prompt)
-        tips = get_openai_response(tips_prompt, temp=0.85)
-        chart_metrics = generate_chart_metrics()
-        chart_html = generate_chart_html(chart_metrics)
+        summary = get_openai_response(prompt_summary)
+        tips = get_openai_response(prompt_tips, temp=0.85)
 
-        html = "<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
-        html += chart_html
-
-        if summary:
-            html += "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
-            for para in summary.split("\n"):
-                if para.strip():
-                    html += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para.strip()}</p>"
-        else:
-            html += "<p style='color:red;'>⚠️ Strategic summary could not be generated.</p>"
-
-        if tips:
-            html += "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>"
-            for line in tips.split("\n"):
-                if line.strip():
-                    html += f"<p style='margin:16px 0; font-size:17px;'>{line.strip()}</p>"
-        else:
-            html += "<p style='color:red;'>⚠️ Creative tips could not be generated.</p>"
+        html = f"<h2>🎯 Investor Insight Report</h2>{chart_html}"
+        html += "<h3 style='margin-top:30px;'>🧠 Strategic Summary:</h3>"
+        html += ''.join(f"<p>{p.strip()}</p>" for p in summary.split("\n") if p.strip())
+        html += "<h3 style='margin-top:30px;'>💡 Creative Tips:</h3>"
+        html += ''.join(f"<p>{t.strip()}</p>" for t in tips.split("\n") if t.strip())
 
         html += (
-            "<br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>"
-            "<p style='font-size:15px; line-height:1.6;'>This report is generated by KataChat AI. "
-            "For legal or financial actions, always consult qualified professionals.</p>"
+            "<hr><p style='font-size:14px;color:#888;'>"
+            f"Full Name: {fullName}<br>DOB: {dob}<br>Country: {country}<br>"
+            f"Company: {company}<br>Role: {role}<br>Years of Experience: {experience}<br>"
+            f"Industry: {industry}<br>Challenge: {challenge}<br>Context: {context}<br>"
+            f"Target Profile: {targetProfile}<br>Advisor: {advisor}<br>Email: {email}<br>"
+            "<br>📩 This report has been emailed. Generated by KataChat AI — PDPA compliant.</p>"
         )
 
-        html += (
-            "<div style='background-color:#f0f8ff; color:#003366; padding:15px; border-left:4px solid #003366; margin-top:30px;'>"
-            "<strong>AI Insights Based On:</strong><br>"
-            "🔹 Elite professional signals across SG/MY/TW<br>"
-            "🔹 Global investor attraction patterns<br>"
-            "<em>PDPA compliant. No data retained.</em></div>"
-        )
-
-        send_email(html, subject)
+        send_email("Your Investor Insight Report", html)
 
         return jsonify({
-            "summary": summary or "",
-            "tips": tips or "",
-            "html_result": html
+            "summary": summary,
+            "tips": tips,
+            "charts_html": chart_html,
+            "full_html": html
         })
 
     except Exception as e:
         logging.error(f"Investor analyze error: {e}")
-        traceback.print_exc()
         return jsonify({"error": "Server error"}), 500
 
 if __name__ == "__main__":
