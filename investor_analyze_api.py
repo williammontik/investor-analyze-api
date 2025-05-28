@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 import os, logging, smtplib, traceback
 from datetime import datetime
@@ -105,6 +106,7 @@ def investor_analyze():
         context = data.get("context")
         target = data.get("targetProfile")
         lang = data.get("lang", "en")
+        gender = data.get("gender", "professional")
         age = compute_age(dob)
 
         subject = "Your Strategic Investor Insight"
@@ -113,22 +115,23 @@ def investor_analyze():
         def format_chart_snippet(metrics):
             out = []
             for group in metrics:
-                vals = ", ".join([f"{label} = {val}%" for label, val in zip(group["labels"], group["values"])] )
+                vals = ", ".join([f"{label} = {val}%" for label, val in zip(group["labels"], group["values"])])
                 out.append(f"{group['title']}: {vals}")
             return "\n".join(out)
 
         summary_prompt = (
             f"📍 Example: Strategic Summary (Industry: {industry})\n"
             f"🧠 Strategic Summary:\n\n"
-            f"Write a 4-paragraph investor insight summary for a similar {age}-year-old with {experience} years in the {industry} sector from {country}.\n"
+            f"Write a 4-paragraph investor insight summary for a similar {age}-year-old {gender} "
+            f"with {experience} years in the {industry} sector from {country}.\n"
             f"Base the insights on the following chart data:\n\n"
             f"{format_chart_snippet(chart_metrics)}\n\n"
-            f"Compare with regional professionals in SG/MY/TW. Do not use personal details or names. Just refer to them as 'a similar profile'."
+            f"Compare with regional professionals in SG/MY/TW. Do not use personal names or direct statements like 'This 42-year-old professional...'"
         )
 
         tips_prompt = (
-            f"Based on this profile, write 10 brief business-savvy tips with emojis to help attract elite investors."
-            f" Each tip should be smart, practical, and inspired by top-performing {industry} professionals in SG, MY, TW."
+            f"Based on this profile, write 10 brief business-savvy tips with emojis to help attract elite investors. "
+            f"Each tip should be smart, practical, and inspired by top-performing {industry} professionals in SG, MY, TW."
         )
 
         summary = get_openai_response(summary_prompt)
