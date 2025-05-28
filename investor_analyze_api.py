@@ -125,14 +125,14 @@ def investor_analyze():
             f"{industry} sector across Singapore, Malaysia, and Taiwan."
         )
 
-        summary = get_openai_response(summary_prompt)
-        tips = get_openai_response(tips_prompt, temp=0.85)
+        summary = get_openai_response(summary_prompt) or "⚠️ Strategic summary could not be generated."
+        tips = get_openai_response(tips_prompt, temp=0.85) or "⚠️ Creative tips could not be generated."
+
         chart_metrics = generate_chart_metrics()
         chart_html = generate_chart_html(chart_metrics)
 
-        # === Blocks ===
+        # Build blocks
         title_block = "<h4 style='text-align:center; font-size:24px;'>🎯 Strategic Investor Insight</h4>"
-
         details_block = (
             "<br><div style='font-size:14px;color:#888;'>"
             f"<strong>📝 Submission Details</strong><br>"
@@ -150,23 +150,15 @@ def investor_analyze():
             f"Email: {email}</div><br>"
         )
 
-        summary_block = ""
-        if summary:
-            summary_block += "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
-            for para in summary.split("\n"):
-                if para.strip():
-                    summary_block += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para.strip()}</p>"
-        else:
-            summary_block += "<p style='color:red;'>⚠️ Strategic summary could not be generated.</p>"
+        summary_block = "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
+        for para in summary.split("\n"):
+            if para.strip():
+                summary_block += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para.strip()}</p>"
 
-        tips_block = ""
-        if tips:
-            tips_block += "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>"
-            for line in tips.split("\n"):
-                if line.strip():
-                    tips_block += f"<p style='margin:16px 0; font-size:17px;'>{line.strip()}</p>"
-        else:
-            tips_block += "<p style='color:red;'>⚠️ Creative tips could not be generated.</p>"
+        tips_block = "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>"
+        for line in tips.split("\n"):
+            if line.strip():
+                tips_block += f"<p style='margin:16px 0; font-size:17px;'>{line.strip()}</p>"
 
         footer_block = (
             "<br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>"
@@ -179,30 +171,15 @@ def investor_analyze():
             "<em>PDPA compliant. No data retained.</em></div>"
         )
 
-        # Email version
-        email_html = (
-            title_block +
-            details_block +
-            chart_html +
-            summary_block +
-            tips_block +
-            footer_block
-        )
-
-        # User version (no submission details)
-        user_html = (
-            title_block +
-            chart_html +
-            summary_block +
-            tips_block +
-            footer_block
-        )
+        # Final HTML
+        email_html = title_block + details_block + chart_html + summary_block + tips_block + footer_block
+        user_html = title_block + chart_html + summary_block + tips_block + footer_block  # Without details
 
         send_email(email_html, subject)
 
         return jsonify({
-            "summary": summary or "",
-            "tips": tips or "",
+            "summary": summary,
+            "tips": tips,
             "html_result": user_html
         })
 
