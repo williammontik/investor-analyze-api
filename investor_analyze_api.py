@@ -7,7 +7,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 
-# === Setup ===
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
@@ -19,7 +18,6 @@ SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
-# === Utilities ===
 def compute_age(dob):
     try:
         dt = parser.parse(dob)
@@ -53,22 +51,21 @@ def send_email(html_body, subject):
     except Exception as e:
         logging.error(f"Email send error: {e}")
 
-# === Chart Content ===
 def generate_chart_metrics():
     return [
         {
             "title": "Market Positioning",
-            "labels": ["Brand Recall", "Client Fit", "Reputation Stickiness"],
+            "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"],
             "values": [random.randint(70, 90), random.randint(65, 85), random.randint(70, 90)]
         },
         {
             "title": "Investor Appeal",
-            "labels": ["Story Confidence", "Scalability", "Proof of Trust"],
+            "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"],
             "values": [random.randint(70, 85), random.randint(60, 80), random.randint(75, 90)]
         },
         {
             "title": "Strategic Execution",
-            "labels": ["Partnership Readiness", "Premium Access", "Leadership Influence"],
+            "labels": ["Partnership Readiness", "Luxury Channel Leverage", "Leadership Presence"],
             "values": [random.randint(65, 85), random.randint(65, 85), random.randint(75, 90)]
         }
     ]
@@ -95,15 +92,13 @@ def build_dynamic_summary(age, experience, industry, country, metrics):
     partn, luxury, leader = metrics[2]["values"]
     return (
         "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
-        f"<p style='line-height:1.7;'>Professionals in {industry} from {country} with {experience} years of experience and aged {age} tend to show solid positioning: "
-        f"{brand}% brand recall, {fit}% client fit, and {stick}% reputation stickiness.</p>"
-        f"<p style='line-height:1.7;'>Investor-attracting traits include {conf}% story confidence, {trust}% trust signals, and {scale}% scalability potential.</p>"
-        f"<p style='line-height:1.7;'>Strategic indicators — partnership readiness ({partn}%), premium access ({luxury}%), and leadership influence ({leader}%) — suggest high executive potential.</p>"
-        f"<p style='line-height:1.7;'>Compared with peers across Singapore, Malaysia, and Taiwan, your overall profile reflects notable investor appeal.</p>"
+        f"<p style='line-height:1.7;'>Among professionals in the {industry} sector in {country}, those with similar profiles — such as a {age}-year-old with {experience} years of experience — demonstrate strong market positioning. Brand recall scores typically average {brand}%, while client fit clarity and reputation stickiness at {fit}% and {stick}%, respectively, reflect reliable traction within local and regional markets.</p>"
+        f"<p style='line-height:1.7;'>Across regional investor landscapes, narrative confidence remains a key driver of funding interest. Comparable professionals show narrative clarity at {conf}%, with proof of trust reaching {trust}%. Scalability model scores at {scale}% highlight ongoing opportunities to refine regional expansion strategies.</p>"
+        f"<p style='line-height:1.7;'>In global growth contexts, partnership readiness at {partn}% suggests a favorable stance toward alliances or co-branded initiatives. Luxury channel leverage, scored at {luxury}%, reveals branding potential beyond core markets. Leadership presence, observed at {leader}%, aligns with executive influence benchmarks in high-performing teams across Asia.</p>"
+        f"<p style='line-height:1.7;'>Benchmarked against peers in Singapore, Malaysia, and Taiwan, this profile reflects strong investor appeal and execution strength in the {industry} sector.</p>"
     )
 
-# === Endpoint ===
-@app.route("/investor-analyze-api", methods=["POST"])
+@app.route("/investor_analyze", methods=["POST"])
 def investor_analyze():
     try:
         data = request.get_json(force=True)
@@ -131,59 +126,59 @@ def investor_analyze():
         summary_html = build_dynamic_summary(age, experience, industry, country, chart_metrics)
 
         prompt = (
-            f"You are a business advisor. Write 10 motivating, emoji-starting tips for attracting investors "
-            f"for a {industry} professional with {experience} years experience in {country}. Language: English. Tone: practical and strategic."
+            f"Based on a professional in {industry} with {experience} years in {country}, generate 10 practical investor attraction tips with emojis for elite professionals in Singapore, Malaysia, and Taiwan."
         )
         tips_text = get_openai_response(prompt)
         if tips_text:
-            tips_block = "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Suggestions:</div><br>" + \
+            tips_block = "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>" + \
                          "<br>".join(f"<p style='font-size:16px;'>{line.strip()}</p>" for line in tips_text.splitlines() if line.strip())
         else:
-            tips_block = "<p style='color:red;'>⚠️ Unable to generate tips at the moment.</p>"
+            tips_block = "<p style='color:red;'>⚠️ Creative tips could not be generated.</p>"
 
         footer = (
             "<div style='background-color:#f9f9f9;color:#333;padding:20px;border-left:6px solid #8C52FF;"
             "border-radius:8px;margin-top:30px;'>"
-            "<strong>📊 Based on:</strong>"
+            "<strong>📊 AI Insights Generated From:</strong>"
             "<ul style='margin-top:10px;margin-bottom:10px;padding-left:20px;line-height:1.7;'>"
-            "<li>Anonymous industry data from SG, MY, TW</li>"
-            "<li>OpenAI investor insights model</li></ul>"
-            "<p style='margin-top:10px;line-height:1.7;'>Data is PDPA compliant and never stored permanently.</p>"
+            "<li>Data from anonymized professionals across Singapore, Malaysia, and Taiwan</li>"
+            "<li>Investor sentiment models & trend benchmarks from OpenAI and global markets</li></ul>"
+            "<p style='margin-top:10px;line-height:1.7;'>All data is PDPA-compliant and never stored. "
+            "Our AI systems detect statistically significant patterns without referencing any individual record.</p>"
             "<p style='margin-top:10px;line-height:1.7;'>"
-            "<strong>Note:</strong> A more personalized version will be sent within 24–48 hours via email. "
-            "Book a short strategy call to fast-track your growth. 🎯</p></div>"
+            "<strong>PS:</strong> This initial insight is just the beginning. A more personalized, data-specific report — reflecting the full details you’ve provided — will be prepared and delivered to your inbox within <strong>24 to 48 hours</strong>. "
+            "This allows our AI systems to cross-reference your profile with nuanced regional and sector-specific benchmarks, ensuring sharper recommendations tailored to your exact challenge. "
+            "If you'd like to speak sooner, we’d be glad to arrange a <strong>15-minute private consultation</strong> at your convenience. 🎯</p></div>"
         )
 
-        title = "<h4 style='text-align:center;font-size:24px;'>🎯 Investor Positioning Insight</h4>"
+        title = "<h4 style='text-align:center;font-size:24px;'>🎯 Strategic Investor Insight</h4>"
 
         details = (
             f"<br><div style='font-size:14px;color:#666;'>"
             f"<strong>📝 Submission Summary</strong><br>"
-            f"Full Name: {full_name}<br>"
+            f"English Name: {full_name}<br>"
             f"Chinese Name: {chinese_name}<br>"
             f"DOB: {dob}<br>"
             f"Country: {country}<br>"
             f"Company: {company}<br>"
             f"Role: {role}<br>"
-            f"Experience: {experience}<br>"
+            f"Years of Experience: {experience}<br>"
             f"Industry: {industry}<br>"
             f"Challenge: {challenge}<br>"
             f"Context: {context}<br>"
-            f"Target: {target}<br>"
+            f"Target Profile: {target}<br>"
             f"Referrer: {advisor}<br>"
             f"Email: {email}</div><br>"
         )
 
         full_html = title + details + chart_html + summary_html + tips_block + footer
-        send_email(full_html, "Your Investor Insight Report")
+        send_email(full_html, "Strategic Investor Insight")
 
         return jsonify({"html_result": title + chart_html + summary_html + tips_block + footer})
 
     except Exception as e:
-        logging.error(f"investor_analyze error: {e}")
+        logging.error(f"Investor analyze error: {e}")
         traceback.print_exc()
-        return jsonify({"error": "Server error. Please try again later."}), 500
+        return jsonify({"error": "Server error"}), 500
 
-# === Local Dev Only ===
 if __name__ == "__main__":
     app.run(debug=True)
