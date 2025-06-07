@@ -150,7 +150,7 @@ def investor_analyze():
             "If you'd like to speak sooner, we’d be glad to arrange a <strong>15-minute private consultation</strong> at your convenience. 🎯</p></div>"
         )
 
-        title = "<h4 style='text-align:center;font-size:24px;'>🎯 Strategic Investor Insight</h4>"
+        title = "<h4 style='text-align:center;font-size:24px;'>🎯 AI Strategic Insight</h4>"
 
         details = (
             f"<br><div style='font-size:14px;color:#666;'>"
