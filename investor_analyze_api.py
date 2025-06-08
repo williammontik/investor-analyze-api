@@ -86,19 +86,19 @@ def generate_chart_html(metrics):
         html += "<br>"
     return html
 
-def build_dynamic_summary(age, experience, industry, country, metrics):
+def build_dynamic_summary(age, experience, industry, country, metrics, challenge="", context="", target_profile=""):
     brand, fit, stick = metrics[0]["values"]
     conf, scale, trust = metrics[1]["values"]
     partn, luxury, leader = metrics[2]["values"]
     return (
         "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
-        f"<p style='line-height:1.7;'>In today’s evolving {industry} landscape within {country}, professionals with {experience} years of experience — particularly around age {age} — are increasingly finding themselves at a crossroads between relevance and reinvention. Brand recall standing at {brand}% shows that visibility is strong, but maintaining clarity of value ({fit}%) and fostering long-term trust ({stick}%) require sharper storytelling and deeper client engagement strategies.</p>"
-        
-        f"<p style='line-height:1.7;'>Investor sentiment in this region continues to value both clarity and credibility. With narrative confidence at {conf}%, many peers in your position are able to articulate their growth story clearly. However, the scalability model at {scale}% suggests that while potential exists, translating that into investor confidence requires more structured frameworks. Encouragingly, trust indicators are high at {trust}%, meaning reputation and proof points are often in place — but perhaps under-leveraged in the pitch process.</p>"
+        f"<p style='line-height:1.7;'>In the {industry} landscape of {country}, individuals with around {experience} years of experience — particularly at a formative age like {age} — often find themselves at an inflection point. Your recent reflection on <strong>{challenge}</strong> is more than valid — it's common among ambitious professionals navigating crowded markets. From what you've shared — <em>“{context}”</em> — it's clear you're not just seeking change, but clarity. A brand recall score of {brand}% shows you've made a mark, but clarity of value at {fit}% and trust retention at {stick}% suggest there's still room for your message to land more deeply with the right audience.</p>"
 
-        f"<p style='line-height:1.7;'>Looking outward, strategic execution remains a defining marker of those who break through. Peers with partnership readiness at {partn}% show strong openness to collaboration, while luxury channel leverage at {luxury}% reflects an undercurrent of aspirational branding power waiting to be unlocked. Leadership presence at {leader}% also confirms that many in your profile group are recognized — but may benefit from stronger positioning in high-value circles or executive ecosystems.</p>"
+        f"<p style='line-height:1.7;'>Investor sentiment in {country} often hinges on coherence and confidence. Your narrative strength, benchmarked at {conf}%, is a clear signal that your story has power. But scalability — currently at {scale}% — might benefit from tighter frameworks or sharper articulation, especially when pitching more complex strategies. The encouraging figure of {trust}% in proof of trust shows that your foundation is solid. Now, it’s about how those foundations are communicated — not just internally, but externally where it matters most.</p>"
 
-        f"<p style='line-height:1.7;'>When benchmarked against data from professionals across Singapore, Malaysia, and Taiwan, this profile demonstrates promising momentum. Yet the full potential lies in refining clarity, amplifying narrative, and aligning execution with investor expectations. These insights highlight where you already stand out — and where sharper moves can turn strong foundations into strategic breakthroughs.</p>"
+        f"<p style='line-height:1.7;'>Execution is where strong ideas meet the market. With partnership readiness at {partn}%, there’s a clear openness to collaboration — which may align well with your ideal partner or investor type: <strong>{target_profile}</strong>. The {luxury}% score in luxury channel leverage reveals branding potential far beyond current visibility, and leadership presence at {leader}% suggests that while you're already seen as credible, there’s opportunity to further anchor your role in high-trust, high-influence spaces.</p>"
+
+        f"<p style='line-height:1.7;'>Benchmarking your profile against peers across Singapore, Malaysia, and Taiwan reveals not only consistency but strategic upside. The data suggests your instincts are right — but to fully meet the challenge of <strong>{challenge}</strong>, the next step is about aligning message, medium, and market with precision. These insights don’t just show where you are — they illuminate the specific shifts that could turn momentum into meaningful breakthrough.</p>"
     )
 
 @app.route("/investor_analyze", methods=["POST"])
@@ -126,7 +126,7 @@ def investor_analyze():
         age = compute_age(dob)
         chart_metrics = generate_chart_metrics()
         chart_html = generate_chart_html(chart_metrics)
-        summary_html = build_dynamic_summary(age, experience, industry, country, chart_metrics)
+        summary_html = build_dynamic_summary(age, experience, industry, country, chart_metrics, challenge, context, target)
 
         prompt = (
             f"Based on a professional in {industry} with {experience} years in {country}, generate 10 practical investor attraction tips with emojis for elite professionals in Singapore, Malaysia, and Taiwan."
