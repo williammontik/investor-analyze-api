@@ -150,7 +150,7 @@ def investor_analyze():
             "<p style='margin-top:10px;line-height:1.7;'>"
             "<strong>PS:</strong> This initial insight is just the beginning. A more personalized, data-specific report — reflecting the full details you’ve provided — will be prepared and delivered to your inbox within <strong>24 to 48 hours</strong>. "
             "This allows our AI systems to cross-reference your profile with nuanced regional and sector-specific benchmarks, ensuring sharper recommendations tailored to your exact challenge. "
-            "If you'd like to speak sooner, we’d be glad to arrange a <strong>15-minute private consultation</strong> at your convenience. 🎯</p></div>"
+            "If you'd like to speak sooner, we’d be glad to arrange a <strong>15-minute call</strong> at your convenience. 🎯</p></div>"
         )
 
         title = "<h4 style='text-align:center;font-size:24px;'>🎯 AI Strategic Insight</h4>"
