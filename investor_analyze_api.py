@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback, random
+import os
+import logging
+import smtplib
+import traceback
+import random
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -7,181 +11,217 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 
+# --- Initialization ---
 app = Flask(__name__)
 CORS(app)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# --- Configuration ---
+# It's recommended to set these as environment variables for security
+try:
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+except Exception as e:
+    logging.error(f"Failed to initialize configuration from environment variables: {e}")
+    client = None
+    SMTP_PASSWORD = None
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SMTP_USERNAME = "kata.chatbot@gmail.com"
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_USERNAME = "kata.chatbot@gmail.com" # Or your sending email
 
-def compute_age(dob):
+# --- Helper Functions ---
+def compute_age(dob_str):
+    """Safely computes age from a 'YYYY-MM-DD' string."""
     try:
-        dt = parser.parse(dob)
+        birth_date = parser.parse(dob_str)
         today = datetime.today()
-        return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
-    except:
+        age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        return age
+    except (ValueError, TypeError):
+        logging.warning(f"Could not parse DOB: {dob_str}. Returning age 0.")
         return 0
 
 def get_openai_response(prompt, temp=0.85):
+    """Gets a response from OpenAI's chat model."""
+    if not client:
+        logging.error("OpenAI client not initialized.")
+        return None
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
-            temperature=temp
+            temperature=temp,
+            max_tokens=300
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        logging.error(f"OpenAI error: {e}")
+        logging.error(f"OpenAI API error: {e}")
         return None
 
 def send_email(html_body, subject):
+    """Sends an email using Gmail's SMTP server."""
+    if not SMTP_PASSWORD:
+        logging.error("SMTP password not configured. Cannot send email.")
+        return
     msg = MIMEText(html_body, 'html', 'utf-8')
     msg['Subject'] = subject
     msg['From'] = SMTP_USERNAME
-    msg['To'] = SMTP_USERNAME
+    msg['To'] = SMTP_USERNAME # Sends the email to yourself as a notification
+    
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
             server.send_message(msg)
+            logging.info("Email sent successfully.")
     except Exception as e:
-        logging.error(f"Email send error: {e}")
+        logging.error(f"Email sending failed: {e}")
 
+# --- Chart and Summary Generation ---
 def generate_chart_metrics():
+    """Generates randomized metrics for the analysis charts."""
     return [
-        {
-            "title": "Market Positioning",
-            "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"],
-            "values": [random.randint(70, 90), random.randint(65, 85), random.randint(70, 90)]
-        },
-        {
-            "title": "Investor Appeal",
-            "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"],
-            "values": [random.randint(70, 85), random.randint(60, 80), random.randint(75, 90)]
-        },
-        {
-            "title": "Strategic Execution",
-            "labels": ["Partnership Readiness", "Luxury Channel Leverage", "Leadership Presence"],
-            "values": [random.randint(65, 85), random.randint(65, 85), random.randint(75, 90)]
-        }
+        {"title": "Market Positioning", "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"], "values": [random.randint(70, 90), random.randint(65, 85), random.randint(70, 90)]},
+        {"title": "Investor Appeal", "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"], "values": [random.randint(70, 85), random.randint(60, 80), random.randint(75, 90)]},
+        {"title": "Strategic Execution", "labels": ["Partnership Readiness", "Premium Channel Leverage", "Leadership Presence"], "values": [random.randint(65, 85), random.randint(65, 85), random.randint(75, 90)]}
     ]
 
 def generate_chart_html(metrics):
+    """Creates the HTML for the bar charts."""
     colors = ["#8C52FF", "#5E9CA0", "#F2A900"]
     html = ""
-    for i, m in enumerate(metrics):
-        html += f"<strong style='font-size:18px;color:#333;'>{m['title']}</strong><br>"
-        for j, (label, val) in enumerate(zip(m['labels'], m['values'])):
+    for metric in metrics:
+        html += f"<strong style='font-size:18px;color:#333;'>{metric['title']}</strong><br>"
+        for j, (label, val) in enumerate(zip(metric['labels'], metric['values'])):
             html += (
                 f"<div style='display:flex;align-items:center;margin-bottom:8px;'>"
-                f"<span style='width:180px;'>{label}</span>"
+                f"<span style='width:180px; font-size: 15px;'>{label}</span>"
                 f"<div style='flex:1;background:#eee;border-radius:5px;overflow:hidden;'>"
                 f"<div style='width:{val}%;height:14px;background:{colors[j % len(colors)]};'></div></div>"
-                f"<span style='margin-left:10px;'>{val}%</span></div>"
+                f"<span style='margin-left:10px; font-size: 15px;'>{val}%</span></div>"
             )
         html += "<br>"
     return html
 
-def build_dynamic_summary(age, experience, industry, country, metrics, challenge="", context="", target_profile=""):
+def build_dynamic_summary(age, experience, industry, country, metrics, challenge, context, target_profile):
+    """
+    Builds the final, sophisticated strategic summary with a third-person voice
+    and conceptual integration of user inputs.
+    """
+    industry_map = {
+        "Insurance": "the competitive insurance landscape", "Real Estate": "the dynamic real estate market",
+        "Finance": "the high-stakes world of finance", "Technology": "the fast-evolving technology sector",
+        "Manufacturing": "the foundational manufacturing industry", "Education": "the impactful field of education",
+        "Healthcare": "the vital healthcare sector"
+    }
+    industry_narrative = industry_map.get(industry, f"the field of {industry}")
+
+    challenge_narrative_map = {
+        "Need New Funding": "the pursuit of fresh capital to fuel the next stage of growth",
+        "Unclear Expansion Strategy": "the task of charting a clear and defensible path for expansion",
+        "Lack of Investor Confidence": "the challenge of building a compelling and evidence-backed case for investors",
+        "Weak Brand Positioning": "the strategic imperative to sharpen the brand's narrative and market position"
+    }
+    challenge_narrative = challenge_narrative_map.get(challenge, f"addressing the primary challenge of {challenge.lower()}")
+
+    opening_templates = [
+        f"For a professional with around {experience} years of dedication in {industry_narrative} within {country}, arriving at a strategic crossroads is not just common; it's a sign of ambition.",
+        f"A career spanning {experience} years in {country}'s {industry_narrative} is a clear testament to adaptability and expertise. This journey naturally leads to pivotal moments of reflection.",
+        f"Navigating {industry_narrative} in {country} for {experience} years cultivates a unique perspective, especially when confronting the next phase of professional growth at an age of {age}."
+    ]
+    chosen_opening = random.choice(opening_templates)
+
     brand, fit, stick = metrics[0]["values"]
     conf, scale, trust = metrics[1]["values"]
-    partn, luxury, leader = metrics[2]["values"]
-    return (
+    partn, premium, leader = metrics[2]["values"]
+
+    summary_html = (
         "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
-        f"<p style='line-height:1.7;'>In the {industry} landscape of {country}, individuals with around {experience} years of experience — particularly at a formative age like {age} — often find themselves at an inflection point. Your recent reflection on <strong>{challenge}</strong> is more than valid — it's common among ambitious professionals navigating crowded markets. From what you've shared — <em>“{context}”</em> — it's clear you're not just seeking change, but clarity. A brand recall score of {brand}% shows you've made a mark, but clarity of value at {fit}% and trust retention at {stick}% suggest there's still room for your message to land more deeply with the right audience.</p>"
-
-        f"<p style='line-height:1.7;'>Investor sentiment in {country} often hinges on coherence and confidence. Your narrative strength, benchmarked at {conf}%, is a clear signal that your story has power. But scalability — currently at {scale}% — might benefit from tighter frameworks or sharper articulation, especially when pitching more complex strategies. The encouraging figure of {trust}% in proof of trust shows that your foundation is solid. Now, it’s about how those foundations are communicated — not just internally, but externally where it matters most.</p>"
-
-        f"<p style='line-height:1.7;'>Execution is where strong ideas meet the market. With partnership readiness at {partn}%, there’s a clear openness to collaboration — which may align well with your ideal partner or investor type: <strong>{target_profile}</strong>. The {luxury}% score in luxury channel leverage reveals branding potential far beyond current visibility, and leadership presence at {leader}% suggests that while you're already seen as credible, there’s opportunity to further anchor your role in high-trust, high-influence spaces.</p>"
-
-        f"<p style='line-height:1.7;'>Benchmarking your profile against peers across Singapore, Malaysia, and Taiwan reveals not only consistency but strategic upside. The data suggests your instincts are right — but to fully meet the challenge of <strong>{challenge}</strong>, the next step is about aligning message, medium, and market with precision. These insights don’t just show where you are — they illuminate the specific shifts that could turn momentum into meaningful breakthrough.</p>"
+        f"<p style='line-height:1.7; text-align:justify;'>{chosen_opening} This profile reflects a pivotal moment where the focus shifts towards {challenge_narrative}. The data indicates a strong Brand Recall of {brand}%, suggesting an established market presence. "
+        f"However, the analysis also points to an opportunity: to sharpen the clarity of the value proposition (Client Fit Clarity at {fit}%) and ensure the professional's reputation has lasting impact (Reputation Stickiness at {stick}%). The objective is to transition from simple recognition to resonant influence.</p>"
+        f"<p style='line-height:1.7; text-align:justify;'>In the {country} investment climate, a compelling story is paramount. A Narrative Confidence benchmarked at {conf}% reveals that the core elements of the professional narrative are powerful. The key appears to be addressing the Scalability Model, currently at {scale}%. "
+        f"This suggests that refining the 'how'—articulating a clear, repeatable model for growth—could significantly boost investor appeal. Encouragingly, a {trust}% score in Proof of Trust shows the track record is a solid asset, providing the credibility upon which compelling future narratives can be built.</p>"
+        f"<p style='line-height:1.7; text-align:justify;'>Strategy is ultimately judged by execution. A Partnership Readiness score of {partn}% signals a strong capacity for collaboration—a crucial element when the objective is to attract a specific class of high-caliber partners or investors. "
+        f"Furthermore, a {premium}% in Premium Channel Leverage reveals an untapped potential to elevate the brand's positioning. Paired with a robust Leadership Presence of {leader}%, the message is clear: this type of profile is already viewed as credible. The next step is to strategically occupy high-influence spaces that reflect the full value of the work.</p>"
+        f"<p style='line-height:1.7; text-align:justify;'>Benchmarking a profile like this against peers across Singapore, Malaysia, and Taiwan doesn't just measure a current standing—it illuminates a strategic advantage. "
+        f"The data suggests that the professional instincts driving this strategic focus are often well-founded. For professionals at this stage, the path forward typically lies in a precise alignment of message, model, and market. This analysis serves as a framework, providing the clarity needed to turn current momentum into a definitive breakthrough.</p>"
     )
+    return summary_html
 
+
+# --- Main Flask Route ---
 @app.route("/investor_analyze", methods=["POST"])
 def investor_analyze():
     try:
         data = request.get_json(force=True)
-        logging.debug(f"POST received: {data}")
+        logging.info(f"Received POST request: {data.get('email', 'No email provided')}")
 
-        full_name = data.get("fullName")
-        chinese_name = data.get("chineseName", "")
-        dob = data.get("dob")
-        company = data.get("company")
-        role = data.get("role")
-        country = data.get("country")
-        experience = data.get("experience")
-        industry = data.get("industry")
-        if industry == "Other":
-            industry = data.get("otherIndustry", "Other")
-        challenge = data.get("challenge")
-        context = data.get("context")
-        target = data.get("targetProfile")
-        advisor = data.get("advisor")
-        email = data.get("email")
-
-        age = compute_age(dob)
+        # --- Data Extraction ---
+        full_name = data.get("fullName", "N/A")
+        dob_str = data.get("dob", "")
+        country = data.get("country", "N/A")
+        experience = data.get("experience", "N/A")
+        industry = data.get("industry", "N/A")
+        challenge = data.get("challenge", "N/A")
+        target_profile = data.get("targetProfile", "N/A")
+        
+        # --- Data Processing ---
+        age = compute_age(dob_str)
         chart_metrics = generate_chart_metrics()
+        
+        # --- HTML Generation ---
+        title = "<h4 style='text-align:center;font-size:24px;'>🎯 AI Strategic Insight</h4>"
         chart_html = generate_chart_html(chart_metrics)
-        summary_html = build_dynamic_summary(age, experience, industry, country, chart_metrics, challenge, context, target)
-
-        prompt = (
-            f"Based on a professional in {industry} with {experience} years in {country}, generate 10 practical investor attraction tips with emojis for elite professionals in Singapore, Malaysia, and Taiwan."
-        )
+        summary_html = build_dynamic_summary(age, experience, industry, country, chart_metrics, challenge, data.get("context", ""), target_profile)
+        
+        # --- AI Tips Generation ---
+        prompt = (f"Based on a professional in {industry} with {experience} years in {country}, generate 10 practical, "
+                  f"investor-attraction tips with emojis for elite professionals in Singapore, Malaysia, and Taiwan. "
+                  f"The tone should be sharp, strategic, and professional.")
         tips_text = get_openai_response(prompt)
+        tips_block = ""
         if tips_text:
             tips_block = "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>" + \
-                         "<br>".join(f"<p style='font-size:16px;'>{line.strip()}</p>" for line in tips_text.splitlines() if line.strip())
+                         "".join(f"<p style='font-size:16px; line-height:1.6;'>{line.strip()}</p>" for line in tips_text.splitlines() if line.strip())
         else:
-            tips_block = "<p style='color:red;'>⚠️ Creative tips could not be generated.</p>"
+            tips_block = "<p style='color:red;'>⚠️ Creative tips could not be generated at this time.</p>"
 
+        # --- Footer and Email Body Construction ---
         footer = (
-            "<div style='background-color:#f9f9f9;color:#333;padding:20px;border-left:6px solid #8C52FF;"
-            "border-radius:8px;margin-top:30px;'>"
-            "<strong>📊 AI Insights Generated From:</strong>"
-            "<ul style='margin-top:10px;margin-bottom:10px;padding-left:20px;line-height:1.7;'>"
+            "<div style='background-color:#f9f9f9;color:#333;padding:20px;border-left:6px solid #8C52FF; border-radius:8px;margin-top:30px;'>"
+            "<strong>📊 AI Insights Generated From:</strong><ul style='margin-top:10px;margin-bottom:10px;padding-left:20px;line-height:1.7;'>"
             "<li>Data from anonymized professionals across Singapore, Malaysia, and Taiwan</li>"
             "<li>Investor sentiment models & trend benchmarks from OpenAI and global markets</li></ul>"
-            "<p style='margin-top:10px;line-height:1.7;'>All data is PDPA-compliant and never stored. "
-            "Our AI systems detect statistically significant patterns without referencing any individual record.</p>"
-            "<p style='margin-top:10px;line-height:1.7;'>"
-            "<strong>PS:</strong> This initial insight is just the beginning. A more personalized, data-specific report — reflecting the full details you’ve provided — will be prepared and delivered to your inbox within <strong>24 to 48 hours</strong>. "
-            "This allows our AI systems to cross-reference your profile with nuanced regional and sector-specific benchmarks, ensuring sharper recommendations tailored to your exact challenge. "
-            "If you'd like to speak sooner, we’d be glad to arrange a <strong>15-minute call</strong> at your convenience. 🎯</p></div>"
+            "<p style='margin-top:10px;line-height:1.7;'>All data is PDPA-compliant and is not stored. Our AI systems detect statistically significant patterns without referencing any individual record.</p>"
+            "<p style='margin-top:10px;line-height:1.7;'><strong>PS:</strong> This initial insight is just the beginning. A more personalized, data-specific report — reflecting the full details provided — will be prepared and delivered to the recipient's inbox within <strong>24 to 48 hours</strong>. "
+            "This allows our AI systems to cross-reference the profile with nuanced regional and sector-specific benchmarks, ensuring sharper recommendations tailored to the exact challenge. "
+            "If a conversation is desired sooner, we would be glad to arrange a <strong>15-minute call</strong> at a convenient time. 🎯</p></div>"
         )
 
-        title = "<h4 style='text-align:center;font-size:24px;'>🎯 AI Strategic Insight</h4>"
+        # Full HTML for email notification
+        email_html = f"<h1>New Investor Insight Submission</h1>" \
+                     f"<p><strong>Name:</strong> {full_name}<br>" \
+                     f"<strong>Email:</strong> {data.get('email', 'N/A')}<br>" \
+                     f"<strong>Country:</strong> {country}<br>" \
+                     f"<strong>Industry:</strong> {industry}<br>" \
+                     f"<strong>Challenge:</strong> {challenge}</p><hr>" + \
+                     title + chart_html + summary_html + tips_block + footer
+        
+        # Send the email notification
+        send_email(email_html, f"New Investor Insight: {full_name}")
 
-        details = (
-            f"<br><div style='font-size:14px;color:#666;'>"
-            f"<strong>📝 Submission Summary</strong><br>"
-            f"English Name: {full_name}<br>"
-            f"Chinese Name: {chinese_name}<br>"
-            f"DOB: {dob}<br>"
-            f"Country: {country}<br>"
-            f"Company: {company}<br>"
-            f"Role: {role}<br>"
-            f"Years of Experience: {experience}<br>"
-            f"Industry: {industry}<br>"
-            f"Challenge: {challenge}<br>"
-            f"Context: {context}<br>"
-            f"Target Profile: {target}<br>"
-            f"Referrer: {advisor}<br>"
-            f"Email: {email}</div><br>"
-        )
-
-        full_html = title + details + chart_html + summary_html + tips_block + footer
-        send_email(full_html, "Strategic Investor Insight")
-
-        return jsonify({"html_result": title + chart_html + summary_html + tips_block + footer})
+        # HTML to be returned to the user's browser
+        display_html = title + chart_html + summary_html + tips_block + footer
+        return jsonify({"html_result": display_html})
 
     except Exception as e:
-        logging.error(f"Investor analyze error: {e}")
+        logging.error(f"An error occurred in /investor_analyze: {e}")
         traceback.print_exc()
-        return jsonify({"error": "Server error"}), 500
+        return jsonify({"error": "An internal server error occurred."}), 500
 
+# --- Run the App ---
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Use Gunicorn for production, but this is fine for local development
+    port = int(os.environ.get("PORT", 8080))
+    app.run(debug=True, host='0.0.0.0', port=port)
