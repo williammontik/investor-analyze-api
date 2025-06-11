@@ -128,13 +128,13 @@ def build_dynamic_summary(age, experience, industry, country, metrics, challenge
 
     summary_html = (
         "<br><div style='font-size:24px;font-weight:bold;'>🧠 Strategic Summary:</div><br>"
-        f"<p style='line-height:1.7; text-align:justify;'>{chosen_opening} This profile reflects a pivotal moment where the focus shifts towards {challenge_narrative}. The data indicates a strong Brand Recall of {brand}%, suggesting an established market presence. "
+        f"<p style='line-height:1.7; text-align:justify; margin-bottom: 1em;'>{chosen_opening} This profile reflects a pivotal moment where the focus shifts towards {challenge_narrative}. The data indicates a strong Brand Recall of {brand}%, suggesting an established market presence. "
         f"However, the analysis also points to an opportunity: to sharpen the clarity of the value proposition (Client Fit Clarity at {fit}%) and ensure the professional's reputation has lasting impact (Reputation Stickiness at {stick}%). The objective is to transition from simple recognition to resonant influence.</p>"
-        f"<p style='line-height:1.7; text-align:justify;'>In the {country} investment climate, a compelling story is paramount. A Narrative Confidence benchmarked at {conf}% reveals that the core elements of the professional narrative are powerful. The key appears to be addressing the Scalability Model, currently at {scale}%. "
+        f"<p style='line-height:1.7; text-align:justify; margin-bottom: 1em;'>In the {country} investment climate, a compelling story is paramount. A Narrative Confidence benchmarked at {conf}% reveals that the core elements of the professional narrative are powerful. The key appears to be addressing the Scalability Model, currently at {scale}%. "
         f"This suggests that refining the 'how'—articulating a clear, repeatable model for growth—could significantly boost investor appeal. Encouragingly, a {trust}% score in Proof of Trust shows the track record is a solid asset, providing the credibility upon which compelling future narratives can be built.</p>"
-        f"<p style='line-height:1.7; text-align:justify;'>Strategy is ultimately judged by execution. A Partnership Readiness score of {partn}% signals a strong capacity for collaboration—a crucial element when the objective is to attract a specific class of high-caliber partners or investors. "
+        f"<p style='line-height:1.7; text-align:justify; margin-bottom: 1em;'>Strategy is ultimately judged by execution. A Partnership Readiness score of {partn}% signals a strong capacity for collaboration—a crucial element when the objective is to attract a specific class of high-caliber partners or investors. "
         f"Furthermore, a {premium}% in Premium Channel Leverage reveals an untapped potential to elevate the brand's positioning. Paired with a robust Leadership Presence of {leader}%, the message is clear: this type of profile is already viewed as credible. The next step is to strategically occupy high-influence spaces that reflect the full value of the work.</p>"
-        f"<p style='line-height:1.7; text-align:justify;'>Benchmarking a profile like this against peers across Singapore, Malaysia, and Taiwan doesn't just measure a current standing—it illuminates a strategic advantage. "
+        f"<p style='line-height:1.7; text-align:justify; margin-bottom: 1em;'>Benchmarking a profile like this against peers across Singapore, Malaysia, and Taiwan doesn't just measure a current standing—it illuminates a strategic advantage. "
         f"The data suggests that the professional instincts driving this strategic focus are often well-founded. For professionals at this stage, the path forward typically lies in a precise alignment of message, model, and market. This analysis serves as a framework, providing the clarity needed to turn current momentum into a definitive breakthrough.</p>"
     )
     return summary_html
@@ -147,10 +147,11 @@ def investor_analyze():
         data = request.get_json(force=True)
         logging.info(f"Received POST request: {data.get('email', 'No email provided')}")
 
-        # --- Data Extraction ---
+        # --- Data Extraction (with new 'contactNumber' field) ---
         full_name = data.get("fullName", "N/A")
         chinese_name = data.get("chineseName", "N/A")
         dob_str = data.get("dob", "N/A")
+        contact_number = data.get("contactNumber", "N/A") # <-- NEW FIELD EXTRACTED
         company = data.get("company", "N/A")
         role = data.get("role", "N/A")
         country = data.get("country", "N/A")
@@ -195,7 +196,7 @@ def investor_analyze():
             "If a conversation is desired sooner, we would be glad to arrange a <strong>15-minute call</strong> at a convenient time. 🎯</p></div>"
         )
         
-        # *** THIS SECTION HAS BEEN CORRECTED TO INCLUDE ALL DETAILS IN THE EMAIL ***
+        # --- Email Body Construction ---
         # 1. Build the detailed submission summary for the email
         details_html = (
             f"<br><div style='font-size:14px;color:#333;line-height:1.6;'>"
@@ -203,6 +204,7 @@ def investor_analyze():
             f"<strong>English Name:</strong> {full_name}<br>"
             f"<strong>Chinese Name:</strong> {chinese_name}<br>"
             f"<strong>DOB:</strong> {dob_str}<br>"
+            f"<strong>Contact Number:</strong> {contact_number}<br>" # <-- NEW FIELD ADDED TO EMAIL DETAILS
             f"<strong>Country:</strong> {country}<br>"
             f"<strong>Company:</strong> {company}<br>"
             f"<strong>Role:</strong> {role}<br>"
@@ -221,7 +223,7 @@ def investor_analyze():
         # 3. Send the email notification
         send_email(email_html, f"New Investor Insight: {full_name}")
 
-        # HTML to be returned to the user's browser (this version does NOT include the raw details)
+        # HTML to be returned to the user's browser
         display_html = title + chart_html + summary_html + tips_block + footer
         return jsonify({"html_result": display_html})
 
