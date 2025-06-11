@@ -17,7 +17,6 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 
 # --- Configuration ---
-# It's recommended to set these as environment variables for security
 try:
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
@@ -28,11 +27,10 @@ except Exception as e:
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SMTP_USERNAME = "kata.chatbot@gmail.com" # Or your sending email
+SMTP_USERNAME = "kata.chatbot@gmail.com"
 
 # --- Helper Functions ---
 def compute_age(dob_str):
-    """Safely computes age from a 'YYYY-MM-DD' string."""
     try:
         birth_date = parser.parse(dob_str)
         today = datetime.today()
@@ -43,7 +41,6 @@ def compute_age(dob_str):
         return 0
 
 def get_openai_response(prompt, temp=0.85):
-    """Gets a response from OpenAI's chat model."""
     if not client:
         logging.error("OpenAI client not initialized.")
         return None
@@ -60,14 +57,13 @@ def get_openai_response(prompt, temp=0.85):
         return None
 
 def send_email(html_body, subject):
-    """Sends an email using Gmail's SMTP server."""
     if not SMTP_PASSWORD:
         logging.error("SMTP password not configured. Cannot send email.")
         return
     msg = MIMEText(html_body, 'html', 'utf-8')
     msg['Subject'] = subject
     msg['From'] = SMTP_USERNAME
-    msg['To'] = SMTP_USERNAME # Sends the email to yourself as a notification
+    msg['To'] = SMTP_USERNAME
     
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
@@ -80,7 +76,6 @@ def send_email(html_body, subject):
 
 # --- Chart and Summary Generation ---
 def generate_chart_metrics():
-    """Generates randomized metrics for the analysis charts."""
     return [
         {"title": "Market Positioning", "labels": ["Brand Recall", "Client Fit Clarity", "Reputation Stickiness"], "values": [random.randint(70, 90), random.randint(65, 85), random.randint(70, 90)]},
         {"title": "Investor Appeal", "labels": ["Narrative Confidence", "Scalability Model", "Proof of Trust"], "values": [random.randint(70, 85), random.randint(60, 80), random.randint(75, 90)]},
@@ -88,7 +83,6 @@ def generate_chart_metrics():
     ]
 
 def generate_chart_html(metrics):
-    """Creates the HTML for the bar charts."""
     colors = ["#8C52FF", "#5E9CA0", "#F2A900"]
     html = ""
     for metric in metrics:
@@ -105,10 +99,6 @@ def generate_chart_html(metrics):
     return html
 
 def build_dynamic_summary(age, experience, industry, country, metrics, challenge, context, target_profile):
-    """
-    Builds the final, sophisticated strategic summary with a third-person voice
-    and conceptual integration of user inputs.
-    """
     industry_map = {
         "Insurance": "the competitive insurance landscape", "Real Estate": "the dynamic real estate market",
         "Finance": "the high-stakes world of finance", "Technology": "the fast-evolving technology sector",
@@ -159,12 +149,18 @@ def investor_analyze():
 
         # --- Data Extraction ---
         full_name = data.get("fullName", "N/A")
-        dob_str = data.get("dob", "")
+        chinese_name = data.get("chineseName", "N/A")
+        dob_str = data.get("dob", "N/A")
+        company = data.get("company", "N/A")
+        role = data.get("role", "N/A")
         country = data.get("country", "N/A")
         experience = data.get("experience", "N/A")
         industry = data.get("industry", "N/A")
         challenge = data.get("challenge", "N/A")
+        context = data.get("context", "N/A")
         target_profile = data.get("targetProfile", "N/A")
+        advisor = data.get("advisor", "N/A")
+        email = data.get("email", "N/A")
         
         # --- Data Processing ---
         age = compute_age(dob_str)
@@ -173,7 +169,7 @@ def investor_analyze():
         # --- HTML Generation ---
         title = "<h4 style='text-align:center;font-size:24px;'>🎯 AI Strategic Insight</h4>"
         chart_html = generate_chart_html(chart_metrics)
-        summary_html = build_dynamic_summary(age, experience, industry, country, chart_metrics, challenge, data.get("context", ""), target_profile)
+        summary_html = build_dynamic_summary(age, experience, industry, country, chart_metrics, challenge, context, target_profile)
         
         # --- AI Tips Generation ---
         prompt = (f"Based on a professional in {industry} with {experience} years in {country}, generate 10 practical, "
@@ -183,11 +179,11 @@ def investor_analyze():
         tips_block = ""
         if tips_text:
             tips_block = "<br><div style='font-size:24px;font-weight:bold;'>💡 Creative Tips:</div><br>" + \
-                         "".join(f"<p style='font-size:16px; line-height:1.6;'>{line.strip()}</p>" for line in tips_text.splitlines() if line.strip())
+                         "".join(f"<p style='font-size:16px; line-height:1.6; margin-bottom: 1em;'>{line.strip()}</p>" for line in tips_text.splitlines() if line.strip())
         else:
             tips_block = "<p style='color:red;'>⚠️ Creative tips could not be generated at this time.</p>"
 
-        # --- Footer and Email Body Construction ---
+        # --- Footer Construction ---
         footer = (
             "<div style='background-color:#f9f9f9;color:#333;padding:20px;border-left:6px solid #8C52FF; border-radius:8px;margin-top:30px;'>"
             "<strong>📊 AI Insights Generated From:</strong><ul style='margin-top:10px;margin-bottom:10px;padding-left:20px;line-height:1.7;'>"
@@ -198,20 +194,34 @@ def investor_analyze():
             "This allows our AI systems to cross-reference the profile with nuanced regional and sector-specific benchmarks, ensuring sharper recommendations tailored to the exact challenge. "
             "If a conversation is desired sooner, we would be glad to arrange a <strong>15-minute call</strong> at a convenient time. 🎯</p></div>"
         )
-
-        # Full HTML for email notification
-        email_html = f"<h1>New Investor Insight Submission</h1>" \
-                     f"<p><strong>Name:</strong> {full_name}<br>" \
-                     f"<strong>Email:</strong> {data.get('email', 'N/A')}<br>" \
-                     f"<strong>Country:</strong> {country}<br>" \
-                     f"<strong>Industry:</strong> {industry}<br>" \
-                     f"<strong>Challenge:</strong> {challenge}</p><hr>" + \
-                     title + chart_html + summary_html + tips_block + footer
         
-        # Send the email notification
+        # *** THIS SECTION HAS BEEN CORRECTED TO INCLUDE ALL DETAILS IN THE EMAIL ***
+        # 1. Build the detailed submission summary for the email
+        details_html = (
+            f"<br><div style='font-size:14px;color:#333;line-height:1.6;'>"
+            f"<h3 style='font-size:16px;'>📝 Submission Summary</h3>"
+            f"<strong>English Name:</strong> {full_name}<br>"
+            f"<strong>Chinese Name:</strong> {chinese_name}<br>"
+            f"<strong>DOB:</strong> {dob_str}<br>"
+            f"<strong>Country:</strong> {country}<br>"
+            f"<strong>Company:</strong> {company}<br>"
+            f"<strong>Role:</strong> {role}<br>"
+            f"<strong>Years of Experience:</strong> {experience}<br>"
+            f"<strong>Industry:</strong> {industry}<br>"
+            f"<strong>Challenge:</strong> {challenge}<br>"
+            f"<strong>Context:</strong> {context}<br>"
+            f"<strong>Target Profile:</strong> {target_profile}<br>"
+            f"<strong>Referrer:</strong> {advisor}<br>"
+            f"<strong>Email:</strong> {email}</div><hr>"
+        )
+
+        # 2. Construct the full email body with the details at the top
+        email_html = f"<h1>New Investor Insight Submission</h1>" + details_html + title + chart_html + summary_html + tips_block + footer
+        
+        # 3. Send the email notification
         send_email(email_html, f"New Investor Insight: {full_name}")
 
-        # HTML to be returned to the user's browser
+        # HTML to be returned to the user's browser (this version does NOT include the raw details)
         display_html = title + chart_html + summary_html + tips_block + footer
         return jsonify({"html_result": display_html})
 
@@ -222,6 +232,5 @@ def investor_analyze():
 
 # --- Run the App ---
 if __name__ == "__main__":
-    # Use Gunicorn for production, but this is fine for local development
     port = int(os.environ.get("PORT", 8080))
     app.run(debug=True, host='0.0.0.0', port=port)
